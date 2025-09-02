@@ -12,7 +12,12 @@ import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterH
 
 // TODO interface
 contract AngstromRouter is BatchRouterHooks {
-    uint32 private _lastUnlockTimestamp;
+    uint256 private _lastUnlockBlockNumber;
+
+    error OnlyOncePerBlock();
+    error NotNode();
+
+    mapping(address => bool) private _nodes;
 
     constructor(
         IVault vault,
@@ -161,15 +166,40 @@ contract AngstromRouter is BatchRouterHooks {
             );
     }
 
+    /***************************************************************************
+                                Nodes Management
+    ***************************************************************************/
+
+    function addNode(address node) external authenticated {
+        _nodes[node] = true;
+    }
+    function removeNode(address node) external authenticated {
+        _nodes[node] = false;
+    }
+
+    /***************************************************************************
+                                Private Functions
+    ***************************************************************************/
+
     function _unlockRouter() internal {
+        // The router can only be unlocked once per block.
         if (_isRouterUnlocked()) {
-            revert RouterAlreadyUnlocked();
+            revert OnlyOncePerBlock();
         }
 
-        _lastUnlockTimestamp = uint32(block.timestamp);
+        // The "unlocker" must be a registered node of the Angstrom network.
+        if (_isNode(msg.sender) == false) {
+            revert NotNode();
+        }
+
+        _lastUnlockBlockNumber = block.number;
+    }
+
+    function _isNode(address account) internal view returns (bool) {
+        return _nodes[account];
     }
 
     function _isRouterUnlocked() internal view returns (bool) {
-        return _lastUnlockTimestamp == block.timestamp;
+        return _lastUnlockBlockNumber == block.number;
     }
 }
