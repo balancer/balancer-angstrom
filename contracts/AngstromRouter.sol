@@ -7,11 +7,19 @@ import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
 import { IWETH } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/misc/IWETH.sol";
 import { IRouter } from "@balancer-labs/v3-interfaces/contracts/vault/IRouter.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
+import {
+    SwapPathExactAmountIn,
+    SwapPathExactAmountOut,
+    SwapExactInHookParams,
+    SwapExactOutHookParams
+} from "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 
+import { SingletonAuthentication } from "@balancer-labs/v3-vault/contracts/SingletonAuthentication.sol";
 import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterHooks.sol";
+import { RouterCommon } from "@balancer-labs/v3-vault/contracts/RouterCommon.sol";
 
 // TODO interface
-contract AngstromRouter is BatchRouterHooks {
+contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
     uint256 private _lastUnlockBlockNumber;
 
     error OnlyOncePerBlock();
@@ -24,7 +32,7 @@ contract AngstromRouter is BatchRouterHooks {
         IWETH weth,
         IPermit2 permit2,
         string memory routerVersion
-    ) BatchRouterHooks(vault, weth, permit2, routerVersion) {
+    ) BatchRouterHooks(vault, weth, permit2, routerVersion) SingletonAuthentication(vault) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
@@ -32,7 +40,6 @@ contract AngstromRouter is BatchRouterHooks {
                                        Swaps
     ***************************************************************************/
 
-    /// @inheritdoc IBatchRouter
     function swapExactIn(
         SwapPathExactAmountIn[] memory paths,
         uint256 deadline,
@@ -65,7 +72,6 @@ contract AngstromRouter is BatchRouterHooks {
             );
     }
 
-    /// @inheritdoc IBatchRouter
     function swapExactOut(
         SwapPathExactAmountOut[] memory paths,
         uint256 deadline,
@@ -102,7 +108,6 @@ contract AngstromRouter is BatchRouterHooks {
                                      Queries
     ***************************************************************************/
 
-    /// @inheritdoc IBatchRouterQueries
     function querySwapExactIn(
         SwapPathExactAmountIn[] memory paths,
         address sender,
@@ -134,7 +139,6 @@ contract AngstromRouter is BatchRouterHooks {
             );
     }
 
-    /// @inheritdoc IBatchRouterQueries
     function querySwapExactOut(
         SwapPathExactAmountOut[] memory paths,
         address sender,
@@ -170,11 +174,19 @@ contract AngstromRouter is BatchRouterHooks {
                                 Nodes Management
     ***************************************************************************/
 
-    function addNode(address node) external authenticated {
+    function addNode(address node) external authenticate {
         _nodes[node] = true;
     }
-    function removeNode(address node) external authenticated {
+    function removeNode(address node) external authenticate {
         _nodes[node] = false;
+    }
+
+    /***************************************************************************
+                                Getters
+    ***************************************************************************/
+
+    function getVault() public view override(RouterCommon, SingletonAuthentication) returns (IVault) {
+        return _vault;
     }
 
     /***************************************************************************
