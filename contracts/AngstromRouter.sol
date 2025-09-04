@@ -20,12 +20,12 @@ import { RouterCommon } from "@balancer-labs/v3-vault/contracts/RouterCommon.sol
 
 // TODO interface
 contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
-    uint256 private _lastUnlockBlockNumber;
+    uint256 internal _lastUnlockBlockNumber;
 
     error OnlyOncePerBlock();
     error NotNode();
 
-    mapping(address => bool) private _nodes;
+    mapping(address => bool) internal _nodes;
 
     constructor(
         IVault vault,
