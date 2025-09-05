@@ -4,8 +4,9 @@ pragma solidity ^0.8.24;
 
 import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
 
+import { IBatchRouterQueries } from "@balancer-labs/v3-interfaces/contracts/vault/IBatchRouterQueries.sol";
 import { IWETH } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/misc/IWETH.sol";
-import { IRouter } from "@balancer-labs/v3-interfaces/contracts/vault/IRouter.sol";
+import { IBatchRouter } from "@balancer-labs/v3-interfaces/contracts/vault/IBatchRouter.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import {
     SwapPathExactAmountIn,
@@ -18,8 +19,7 @@ import { SingletonAuthentication } from "@balancer-labs/v3-vault/contracts/Singl
 import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterHooks.sol";
 import { RouterCommon } from "@balancer-labs/v3-vault/contracts/RouterCommon.sol";
 
-// TODO interface
-contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
+contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthentication {
     uint256 internal _lastUnlockBlockNumber;
 
     error OnlyOncePerBlock();
@@ -39,7 +39,7 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
     /***************************************************************************
                                        Swaps
     ***************************************************************************/
-
+    /// @inheritdoc IBatchRouter
     function swapExactIn(
         SwapPathExactAmountIn[] memory paths,
         uint256 deadline,
@@ -51,8 +51,8 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
-        // Unlocks the router in this block. If the router is already unlocked, reverts.
-        _unlockRouter();
+        // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
+        _unlockAngstrom();
 
         return
             abi.decode(
@@ -72,6 +72,7 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
             );
     }
 
+    /// @inheritdoc IBatchRouter
     function swapExactOut(
         SwapPathExactAmountOut[] memory paths,
         uint256 deadline,
@@ -83,8 +84,8 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
-        // Unlocks the router in this block. If the router is already unlocked, reverts.
-        _unlockRouter();
+        // Unlocks the Angstrom Network in this block. If the Angstrom Network is already unlocked, reverts.
+        _unlockAngstrom();
 
         return
             abi.decode(
@@ -108,6 +109,7 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
                                      Queries
     ***************************************************************************/
 
+    /// @inheritdoc IBatchRouterQueries
     function querySwapExactIn(
         SwapPathExactAmountIn[] memory paths,
         address sender,
@@ -139,6 +141,7 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
             );
     }
 
+    /// @inheritdoc IBatchRouterQueries
     function querySwapExactOut(
         SwapPathExactAmountOut[] memory paths,
         address sender,
@@ -174,11 +177,10 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
                                 Nodes Management
     ***************************************************************************/
 
-    function addNode(address node) external authenticate {
-        _nodes[node] = true;
-    }
-    function removeNode(address node) external authenticate {
-        _nodes[node] = false;
+    function toggleNodes(address[] memory nodes) external authenticate {
+        for (uint256 i = 0; i < nodes.length; i++) {
+            _nodes[nodes[i]] = !_nodes[nodes[i]];
+        }
     }
 
     /***************************************************************************
@@ -193,9 +195,9 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
                                 Private Functions
     ***************************************************************************/
 
-    function _unlockRouter() internal {
+    function _unlockAngstrom() internal {
         // The router can only be unlocked once per block.
-        if (_isRouterUnlocked()) {
+        if (_isAngstromUnlocked()) {
             revert OnlyOncePerBlock();
         }
 
@@ -211,7 +213,7 @@ contract AngstromRouter is BatchRouterHooks, SingletonAuthentication {
         return _nodes[account];
     }
 
-    function _isRouterUnlocked() internal view returns (bool) {
+    function _isAngstromUnlocked() internal view returns (bool) {
         return _lastUnlockBlockNumber == block.number;
     }
 }

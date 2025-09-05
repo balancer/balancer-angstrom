@@ -7,20 +7,20 @@ import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
 import { IWETH } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/misc/IWETH.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 
-import { AngstromRouter } from "../AngstromRouter.sol";
+import { AngstromRouterAndHook } from "../AngstromRouterAndHook.sol";
 
-contract AngstromRouterMock is AngstromRouter {
+contract AngstromRouterAndHookMock is AngstromRouterAndHook {
     constructor(
         IVault vault,
         IWETH weth,
         IPermit2 permit2,
         string memory routerVersion
-    ) AngstromRouter(vault, weth, permit2, routerVersion) {
+    ) AngstromRouterAndHook(vault, weth, permit2, routerVersion) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function manualUnlockRouter() external {
-        _unlockRouter();
+    function manualUnlockAngstrom() external {
+        _unlockAngstrom();
     }
 
     function getLastUnlockBlockNumber() external view returns (uint256) {
