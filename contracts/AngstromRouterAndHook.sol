@@ -2,11 +2,16 @@
 
 pragma solidity ^0.8.24;
 
+import "forge-std/Test.sol";
+
+import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
+import { EIP712 } from "solady/utils/EIP712.sol";
 
 import { IBatchRouterQueries } from "@balancer-labs/v3-interfaces/contracts/vault/IBatchRouterQueries.sol";
 import { IWETH } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/misc/IWETH.sol";
 import { IBatchRouter } from "@balancer-labs/v3-interfaces/contracts/vault/IBatchRouter.sol";
+import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import {
     SwapPathExactAmountIn,
@@ -14,16 +19,25 @@ import {
     SwapExactInHookParams,
     SwapExactOutHookParams
 } from "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { SingletonAuthentication } from "@balancer-labs/v3-vault/contracts/SingletonAuthentication.sol";
 import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterHooks.sol";
 import { RouterCommon } from "@balancer-labs/v3-vault/contracts/RouterCommon.sol";
+import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
-contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthentication {
+contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthentication, BaseHooks, EIP712 {
     uint256 internal _lastUnlockBlockNumber;
 
     error OnlyOncePerBlock();
     error NotNode();
+    error CannotSwapWhileLocked();
+    error UnlockDataTooShort();
+    error InvalidSignature();
+
+    /// @dev `keccak256("AttestAngstromBlockEmpty(uint64 block_number)")`
+    uint256 internal constant ATTEST_EMPTY_BLOCK_TYPE_HASH =
+        0x3f25e551746414ff93f076a7dd83828ff53735b39366c74015637e004fcb0223;
 
     mapping(address => bool) internal _nodes;
 
@@ -174,7 +188,71 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
     }
 
     /***************************************************************************
-                                Nodes Management
+                                     Hooks
+    ***************************************************************************/
+
+    /// @inheritdoc IHooks
+    function onRegister(
+        address,
+        address,
+        TokenConfig[] memory,
+        LiquidityManagement calldata
+    ) public override returns (bool) {
+        return true;
+    }
+
+    /// @inheritdoc IHooks
+    function getHookFlags() public view override returns (HookFlags memory hookFlags) {
+        hookFlags.shouldCallBeforeSwap = true;
+        // hookFlags.shouldCallBeforeAddLiquidity = true;
+        // hookFlags.shouldCallBeforeRemoveLiquidity = true;
+    }
+
+    /// @inheritdoc IHooks
+    function onBeforeSwap(PoolSwapParams calldata params, address) public override returns (bool) {
+        if (_isAngstromUnlocked() == false) {
+            if (params.userData.length < 20) {
+                if (params.userData.length == 0) {
+                    revert CannotSwapWhileLocked();
+                }
+                revert UnlockDataTooShort();
+            } else {
+                address node = address(bytes20(params.userData[:20]));
+                bytes calldata signature = params.userData[20:];
+                unlockWithEmptyAttestation(node, signature);
+            }
+        }
+        return true;
+    }
+
+    function unlockWithEmptyAttestation(address node, bytes calldata signature) public {
+        // The router can only be unlocked once per block.
+        if (_isAngstromUnlocked()) {
+            revert OnlyOncePerBlock();
+        }
+
+        // The "unlocker" must be a registered node of the Angstrom network.
+        if (_isNode(node) == false) {
+            revert NotNode();
+        }
+
+        bytes32 attestationStructHash;
+        assembly ("memory-safe") {
+            mstore(0x00, ATTEST_EMPTY_BLOCK_TYPE_HASH)
+            mstore(0x20, number())
+            attestationStructHash := keccak256(0x00, 0x40)
+        }
+
+        bytes32 digest = _hashTypedData(attestationStructHash);
+        if (!SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature)) {
+            revert InvalidSignature();
+        }
+
+        _lastUnlockBlockNumber = block.number;
+    }
+
+    /***************************************************************************
+                                 Nodes Management
     ***************************************************************************/
 
     function toggleNodes(address[] memory nodes) external authenticate {
@@ -184,7 +262,7 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
     }
 
     /***************************************************************************
-                                Getters
+                                     Getters
     ***************************************************************************/
 
     function getVault() public view override(RouterCommon, SingletonAuthentication) returns (IVault) {
@@ -215,5 +293,9 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
 
     function _isAngstromUnlocked() internal view returns (bool) {
         return _lastUnlockBlockNumber == block.number;
+    }
+
+    function _domainNameAndVersion() internal pure override returns (string memory, string memory) {
+        return ("Angstrom", "v1");
     }
 }

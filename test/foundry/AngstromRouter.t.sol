@@ -16,16 +16,14 @@ import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVa
 import { AngstromRouterAndHookMock } from "../../contracts/test/AngstromRouterAndHookMock.sol";
 import { AngstromRouterAndHook } from "../../contracts/AngstromRouterAndHook.sol";
 
-contract AngstromRouterAndHookTest is BaseVaultTest {
+contract AngstromRouterTest is BaseVaultTest {
     using ArrayHelpers for *;
 
     AngstromRouterAndHookMock private _angstromRouterAndHook;
 
     function setUp() public virtual override {
         super.setUp();
-
         _angstromRouterAndHook = new AngstromRouterAndHookMock(vault, weth, permit2, "AngstromRouterAndHook Mock v1");
-
         authorizer.grantRole(_angstromRouterAndHook.getActionId(AngstromRouterAndHook.toggleNodes.selector), admin);
     }
 
