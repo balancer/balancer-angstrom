@@ -236,19 +236,23 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
             revert NotNode();
         }
 
+        bytes32 digest = _getDigest();
+
+        if (SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature) == false) {
+            revert InvalidSignature();
+        }
+
+        _lastUnlockBlockNumber = block.number;
+    }
+
+    function _getDigest() internal view returns (bytes32) {
         bytes32 attestationStructHash;
         assembly ("memory-safe") {
             mstore(0x00, ATTEST_EMPTY_BLOCK_TYPE_HASH)
             mstore(0x20, number())
             attestationStructHash := keccak256(0x00, 0x40)
         }
-
-        bytes32 digest = _hashTypedData(attestationStructHash);
-        if (!SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature)) {
-            revert InvalidSignature();
-        }
-
-        _lastUnlockBlockNumber = block.number;
+        return _hashTypedData(attestationStructHash);
     }
 
     /***************************************************************************

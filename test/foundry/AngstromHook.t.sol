@@ -76,8 +76,6 @@ contract AngstromHookTest is BaseVaultTest {
         vm.prank(admin);
         _angstromRouterAndHook.toggleNodes([bob].toMemoryArray());
 
-        console2.log(bob);
-
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, swapSignature);
         assertEq(
@@ -88,7 +86,7 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function _generateSignature(address signer, uint256 privateKey) private returns (bytes memory swapSignature) {
-        bytes32 hash = keccak256(abi.encodePacked(signer));
+        bytes32 hash = _angstromRouterAndHook.getDigest();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
         bytes memory signature = abi.encodePacked(r, s, v);
         swapSignature = abi.encodePacked(signer, signature);

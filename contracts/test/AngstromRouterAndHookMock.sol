@@ -30,4 +30,8 @@ contract AngstromRouterAndHookMock is AngstromRouterAndHook {
     function isNode(address account) external view returns (bool) {
         return _isNode(account);
     }
+
+    function getDigest() external view returns (bytes32) {
+        return _getDigest();
+    }
 }
