@@ -21,6 +21,7 @@ import {
 } from "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
+import { EVMCallModeHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/EVMCallModeHelpers.sol";
 import { SingletonAuthentication } from "@balancer-labs/v3-vault/contracts/SingletonAuthentication.sol";
 import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterHooks.sol";
 import { RouterCommon } from "@balancer-labs/v3-vault/contracts/RouterCommon.sol";
@@ -197,20 +198,19 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
         address,
         TokenConfig[] memory,
         LiquidityManagement calldata
-    ) public override returns (bool) {
+    ) public pure override returns (bool) {
         return true;
     }
 
     /// @inheritdoc IHooks
-    function getHookFlags() public view override returns (HookFlags memory hookFlags) {
+    function getHookFlags() public pure override returns (HookFlags memory hookFlags) {
         hookFlags.shouldCallBeforeSwap = true;
-        // hookFlags.shouldCallBeforeAddLiquidity = true;
-        // hookFlags.shouldCallBeforeRemoveLiquidity = true;
     }
 
     /// @inheritdoc IHooks
     function onBeforeSwap(PoolSwapParams calldata params, address) public override returns (bool) {
-        if (_isAngstromUnlocked() == false) {
+        // If the call is a query, do not revert if the block is unlocked.
+        if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
             if (params.userData.length < 20) {
                 if (params.userData.length == 0) {
                     revert CannotSwapWhileLocked();

@@ -41,8 +41,8 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function testOnBeforeSwapCannotSwapWhileLocked() public {
-        // If no userData was provided (therefore, no signature), the hook treats as if the user expected the pools to be
-        // unlocked.
+        // If no userData was provided (therefore, no signature), the hook treats as if the user expected the pools to
+        // be unlocked.
         vm.expectRevert(AngstromRouterAndHook.CannotSwapWhileLocked.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bytes(""));
