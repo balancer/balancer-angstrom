@@ -205,27 +205,84 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
     /// @inheritdoc IHooks
     function getHookFlags() public pure override returns (HookFlags memory hookFlags) {
         hookFlags.shouldCallBeforeSwap = true;
+        hookFlags.shouldCallBeforeAddLiquidity = true;
+        hookFlags.shouldCallBeforeRemoveLiquidity = true;
     }
 
     /// @inheritdoc IHooks
     function onBeforeSwap(PoolSwapParams calldata params, address) public override returns (bool) {
-        // If the call is a query, do not revert if the block is unlocked.
-        if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
-            if (params.userData.length < 20) {
-                if (params.userData.length == 0) {
-                    revert CannotSwapWhileLocked();
-                }
-                revert UnlockDataTooShort();
-            } else {
-                address node = address(bytes20(params.userData[:20]));
-                bytes calldata signature = params.userData[20:];
-                unlockWithEmptyAttestation(node, signature);
-            }
+        // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
+        // Differently from the unlock in the router, an unlock in the hook level requires a signature, because any
+        // router can call it.
+        _unlockAngstromWithSignatureCalldata(params.userData);
+
+        return true;
+    }
+
+    /// @inheritdoc IHooks
+    function onBeforeAddLiquidity(
+        address,
+        address,
+        AddLiquidityKind kind,
+        uint256[] memory,
+        uint256,
+        uint256[] memory,
+        bytes memory userData
+    ) public override returns (bool) {
+        // If the liquidity operation is proportional, rates are not affected, so it's a safe operation. Unbalanced
+        // liquidity operations affects the rate, so we need to unlock the Angstrom network.
+        if (kind != AddLiquidityKind.PROPORTIONAL) {
+            // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
+            // Differently from the unlock in the router, an unlock in the hook level requires a signature, because any
+            // router can call it.
+            _unlockAngstromWithSignature(userData);
         }
         return true;
     }
 
-    function unlockWithEmptyAttestation(address node, bytes calldata signature) public {
+    /// @inheritdoc IHooks
+    function onBeforeRemoveLiquidity(
+        address,
+        address,
+        RemoveLiquidityKind kind,
+        uint256,
+        uint256[] memory,
+        uint256[] memory,
+        bytes memory userData
+    ) public override returns (bool) {
+        // If the liquidity operation is proportional, rates are not affected, so it's a safe operation. Unbalanced
+        // liquidity operations affects the rate, so we need to unlock the Angstrom network.
+        if (kind != RemoveLiquidityKind.PROPORTIONAL) {
+            // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
+            // Differently from the unlock in the router, an unlock in the hook level requires a signature, because any
+            // router can call it.
+            _unlockAngstromWithSignature(userData);
+        }
+
+        return true;
+    }
+
+    function unlockWithEmptyAttestation(address node, bytes memory signature) public {
+        // The router can only be unlocked once per block.
+        if (_isAngstromUnlocked()) {
+            revert OnlyOncePerBlock();
+        }
+
+        // The "unlocker" must be a registered node of the Angstrom network.
+        if (_isNode(node) == false) {
+            revert NotNode();
+        }
+
+        bytes32 digest = _getDigest();
+
+        if (SignatureCheckerLib.isValidSignatureNow(node, digest, signature) == false) {
+            revert InvalidSignature();
+        }
+
+        _lastUnlockBlockNumber = block.number;
+    }
+
+    function unlockWithEmptyAttestationCalldata(address node, bytes calldata signature) public {
         // The router can only be unlocked once per block.
         if (_isAngstromUnlocked()) {
             revert OnlyOncePerBlock();
@@ -243,16 +300,6 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
         }
 
         _lastUnlockBlockNumber = block.number;
-    }
-
-    function _getDigest() internal view returns (bytes32) {
-        bytes32 attestationStructHash;
-        assembly ("memory-safe") {
-            mstore(0x00, ATTEST_EMPTY_BLOCK_TYPE_HASH)
-            mstore(0x20, number())
-            attestationStructHash := keccak256(0x00, 0x40)
-        }
-        return _hashTypedData(attestationStructHash);
     }
 
     /***************************************************************************
@@ -299,7 +346,48 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
         return _lastUnlockBlockNumber == block.number;
     }
 
+    function _unlockAngstromWithSignature(bytes memory userData) internal {
+        // If the call is a query, do not revert if the block is unlocked.
+        if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
+            if (userData.length < 20) {
+                if (userData.length == 0) {
+                    revert CannotSwapWhileLocked();
+                }
+                revert UnlockDataTooShort();
+            } else {
+                (address node, bytes memory signature) = abi.decode(userData, (address, bytes));
+                unlockWithEmptyAttestation(node, signature);
+            }
+        }
+    }
+
+    function _unlockAngstromWithSignatureCalldata(bytes calldata userData) internal {
+        // If the call is a query, do not revert if the block is unlocked.
+        if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
+            if (userData.length < 20) {
+                if (userData.length == 0) {
+                    revert CannotSwapWhileLocked();
+                }
+                revert UnlockDataTooShort();
+            } else {
+                address node = address(bytes20(userData[:20]));
+                bytes calldata signature = userData[20:];
+                unlockWithEmptyAttestationCalldata(node, signature);
+            }
+        }
+    }
+
     function _domainNameAndVersion() internal pure override returns (string memory, string memory) {
         return ("Angstrom", "v1");
+    }
+
+    function _getDigest() internal view returns (bytes32) {
+        bytes32 attestationStructHash;
+        assembly ("memory-safe") {
+            mstore(0x00, ATTEST_EMPTY_BLOCK_TYPE_HASH)
+            mstore(0x20, number())
+            attestationStructHash := keccak256(0x00, 0x40)
+        }
+        return _hashTypedData(attestationStructHash);
     }
 }
