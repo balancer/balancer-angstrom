@@ -19,8 +19,8 @@ contract AngstromRouterAndHookMock is AngstromRouterAndHook {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function manualUnlockAngstrom() external {
-        _unlockAngstrom();
+    function manualUnlockAngstromWithRouter() external {
+        _unlockAngstromWithRouter();
     }
 
     function getLastUnlockBlockNumber() external view returns (uint256) {

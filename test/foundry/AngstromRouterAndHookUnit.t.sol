@@ -49,7 +49,7 @@ contract AngstromRouterAndHookUnitTest is BaseVaultTest {
 
     function testUnlockAngstromNotNode() public {
         vm.expectRevert(AngstromRouterAndHook.NotNode.selector);
-        _angstromRouterAndHook.manualUnlockAngstrom();
+        _angstromRouterAndHook.manualUnlockAngstromWithRouter();
     }
 
     function testUnlockAngstromTwice() public {
@@ -57,9 +57,9 @@ contract AngstromRouterAndHookUnitTest is BaseVaultTest {
         _angstromRouterAndHook.toggleNodes([bob].toMemoryArray());
 
         vm.startPrank(bob);
-        _angstromRouterAndHook.manualUnlockAngstrom();
+        _angstromRouterAndHook.manualUnlockAngstromWithRouter();
         vm.expectRevert(AngstromRouterAndHook.OnlyOncePerBlock.selector);
-        _angstromRouterAndHook.manualUnlockAngstrom();
+        _angstromRouterAndHook.manualUnlockAngstromWithRouter();
         vm.stopPrank();
     }
 
@@ -70,7 +70,7 @@ contract AngstromRouterAndHookUnitTest is BaseVaultTest {
         assertEq(_angstromRouterAndHook.getLastUnlockBlockNumber(), 0, "Last unlock block number is not 0");
 
         vm.prank(bob);
-        _angstromRouterAndHook.manualUnlockAngstrom();
+        _angstromRouterAndHook.manualUnlockAngstromWithRouter();
         assertEq(
             _angstromRouterAndHook.getLastUnlockBlockNumber(),
             block.number,
