@@ -33,17 +33,16 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function testOnBeforeSwapNotNode() public {
-        bytes memory swapSignature = _generateSignature(bob, bobKey);
+        (, bytes memory userData) = _generateSignatureAndUserData(bob, bobKey);
 
         vm.expectRevert(AngstromRouterAndHook.NotNode.selector);
         vm.prank(bob);
-        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, swapSignature);
+        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, userData);
     }
 
     function testOnBeforeSwapCannotSwapWhileLocked() public {
         // If no userData was provided (therefore, no signature), the hook treats as if the user expected the pools to be
         // unlocked.
-
         vm.expectRevert(AngstromRouterAndHook.CannotSwapWhileLocked.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bytes(""));
@@ -51,7 +50,6 @@ contract AngstromHookTest is BaseVaultTest {
 
     function testOnBeforeSwapUnlockDataTooShort() public {
         // If the userData is too short, there's not enough data to represent the ECDSA signature.
-
         vm.expectRevert(AngstromRouterAndHook.UnlockDataTooShort.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bytes("1"));
@@ -59,25 +57,37 @@ contract AngstromHookTest is BaseVaultTest {
 
     function testOnBeforeSwapInvalidSignature() public {
         // If the signature is invalid, the hook reverts (in this case, signer and key do not match).
-
-        bytes memory swapSignature = _generateSignature(bob, aliceKey);
+        (, bytes memory userData) = _generateSignatureAndUserData(bob, aliceKey);
 
         vm.prank(admin);
         _angstromRouterAndHook.toggleNodes([bob].toMemoryArray());
 
         vm.expectRevert(AngstromRouterAndHook.InvalidSignature.selector);
         vm.prank(bob);
-        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, swapSignature);
+        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, userData);
+    }
+
+    function testOnBeforeSwapOnlyOncePerBlock() public {
+        vm.prank(admin);
+        _angstromRouterAndHook.toggleNodes([bob].toMemoryArray());
+
+        (bytes memory signature, bytes memory userData) = _generateSignatureAndUserData(bob, bobKey);
+        vm.prank(bob);
+        _angstromRouterAndHook.unlockWithEmptyAttestation(bob, signature);
+
+        vm.expectRevert(AngstromRouterAndHook.OnlyOncePerBlock.selector);
+        vm.prank(bob);
+        _angstromRouterAndHook.unlockWithEmptyAttestation(bob, signature);
     }
 
     function testOnBeforeSwapSucceedsAndSetBlockNumber() public {
-        bytes memory swapSignature = _generateSignature(bob, bobKey);
+        (, bytes memory userData) = _generateSignatureAndUserData(bob, bobKey);
 
         vm.prank(admin);
         _angstromRouterAndHook.toggleNodes([bob].toMemoryArray());
 
         vm.prank(bob);
-        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, swapSignature);
+        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, userData);
         assertEq(
             _angstromRouterAndHook.getLastUnlockBlockNumber(),
             block.number,
@@ -85,10 +95,13 @@ contract AngstromHookTest is BaseVaultTest {
         );
     }
 
-    function _generateSignature(address signer, uint256 privateKey) private returns (bytes memory swapSignature) {
+    function _generateSignatureAndUserData(
+        address signer,
+        uint256 privateKey
+    ) private returns (bytes memory signature, bytes memory userData) {
         bytes32 hash = _angstromRouterAndHook.getDigest();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
-        bytes memory signature = abi.encodePacked(r, s, v);
-        swapSignature = abi.encodePacked(signer, signature);
+        signature = abi.encodePacked(r, s, v);
+        userData = abi.encodePacked(signer, signature);
     }
 }
