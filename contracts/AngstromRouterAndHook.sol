@@ -2,8 +2,6 @@
 
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-
 import { SignatureCheckerLib } from "solady/utils/SignatureCheckerLib.sol";
 import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
 import { EIP712 } from "solady/utils/EIP712.sol";
