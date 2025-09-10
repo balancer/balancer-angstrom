@@ -1,11 +1,11 @@
 {
-  "name": "@balancer-labs/v3-custom-pool",
-  "description": "Balancer V3 Custom Pool",
+  "name": "@balancer-labs/v3-angstrom-router",
+  "description": "Balancer V3 Angstrom Router and Hook",
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/balancer-labs/custom-pool-v3#readme",
-  "repository": "git@github.com:balancer-labs/custom-pool-v3.git",
+  "homepage": "https://github.com/balancer-labs/angstrom-router#readme",
+  "repository": "git@github.com:balancer-labs/angstrom-router.git",
   "bugs": {
-    "url": "https://github.com/balancer-labs/custom-pool-v3/issues"
+    "url": "https://github.com/balancer-labs/angstrom-router/issues"
   },
   "engines": {
     "node": ">=18 <18.21"
