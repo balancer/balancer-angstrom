@@ -78,7 +78,7 @@ contract AngstromRouterAndHookUnitTest is BaseVaultTest {
         );
     }
 
-    function testGetVault() public {
+    function testGetVault() public view {
         assertEq(address(_angstromRouterAndHook.getVault()), address(vault), "Wrong vault address");
     }
 }
