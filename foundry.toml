@@ -14,6 +14,7 @@ remappings = [
     'forge-std/=node_modules/forge-std/src/',
     '@openzeppelin/=node_modules/@openzeppelin/',
     'permit2/=node_modules/permit2/',
+    'solady/=node_modules/solady/',
     '@balancer-labs/v3-vault/=lib/balancer-v3-monorepo/pkg/vault/',
     '@balancer-labs/v3-interfaces/=lib/balancer-v3-monorepo/pkg/interfaces/',
     '@balancer-labs/v3-pool-utils/=lib/balancer-v3-monorepo/pkg/pool-utils/',
