@@ -1,11 +1,11 @@
 {
-  "name": "@balancer-labs/v3-angstrom-router",
+  "name": "@balancer-labs/v3-balancer-angstrom",
   "description": "Balancer V3 Angstrom Router and Hook",
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/balancer-labs/angstrom-router#readme",
-  "repository": "git@github.com:balancer-labs/angstrom-router.git",
+  "homepage": "https://github.com/balancer-labs/balancer-angstrom#readme",
+  "repository": "git@github.com:balancer-labs/balancer-angstrom.git",
   "bugs": {
-    "url": "https://github.com/balancer-labs/angstrom-router/issues"
+    "url": "https://github.com/balancer-labs/balancer-angstrom/issues"
   },
   "engines": {
     "node": ">=18 <18.21"

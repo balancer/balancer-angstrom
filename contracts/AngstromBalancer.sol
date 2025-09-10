@@ -34,7 +34,7 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
  * Notice that unlock is "global" for a certain block, i.e., if a node unlocks a hook or router in a block, all pools
  * are unlocked. Unlocked pools accept any operation (swap, unbalanced liquidity, etc) from any router.
  */
-contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthentication, BaseHooks, EIP712 {
+contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentication, BaseHooks, EIP712 {
     uint256 internal _lastUnlockBlockNumber;
 
     /**
