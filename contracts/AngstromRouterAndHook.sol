@@ -63,7 +63,7 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
     error InvalidSignature();
 
     /// @dev `keccak256("AttestAngstromBlockEmpty(uint64 block_number)")`
-    uint256 internal constant ATTEST_EMPTY_BLOCK_TYPE_HASH =
+    uint256 internal constant _ATTEST_EMPTY_BLOCK_TYPE_HASH =
         0x3f25e551746414ff93f076a7dd83828ff53735b39366c74015637e004fcb0223;
 
     mapping(address => bool) internal _nodes;
@@ -437,8 +437,9 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
 
     function _getDigest() internal view returns (bytes32) {
         bytes32 attestationStructHash;
+        // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
-            mstore(0x00, ATTEST_EMPTY_BLOCK_TYPE_HASH)
+            mstore(0x00, _ATTEST_EMPTY_BLOCK_TYPE_HASH)
             mstore(0x20, number())
             attestationStructHash := keccak256(0x00, 0x40)
         }
@@ -452,6 +453,7 @@ contract AngstromRouterAndHook is IBatchRouter, BatchRouterHooks, SingletonAuthe
         uint256 signatureLength = userData.length - 20;
 
         // Extract first 20 bytes as address
+        // solhint-disable-next-line no-inline-assembly
         assembly {
             // `add(userData, 32)` is a pointer to the start of the data
             // `shr(96, mload(...))` right-shifts 12 bytes (96 bits) to fit into 20 bytes
