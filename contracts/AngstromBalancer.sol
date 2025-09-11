@@ -113,6 +113,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         _;
     }
 
+    modifier onlyWhenLocked() {
+        _ensureAngstromLocked();
+        _;
+    }
+
     constructor(
         IVault vault,
         IWETH weth,
@@ -136,6 +141,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         external
         payable
         fromValidator
+        onlyWhenLocked
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
@@ -170,6 +176,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         external
         payable
         fromValidator
+        onlyWhenLocked
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
@@ -355,14 +362,14 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      * @param node The node unlocking the Angstrom network
      * @param signature The signature of the node unlocking the Angstrom network
      */
-    function unlockWithEmptyAttestation(address node, bytes memory signature) public {
+    function unlockWithEmptyAttestation(address node, bytes memory signature) public onlyWhenLocked {
         bytes32 digest = _ensureUnlockedAndNodeReturningDigest(node);
 
         if (SignatureCheckerLib.isValidSignatureNow(node, digest, signature) == false) {
             revert InvalidSignature();
         }
 
-        _lastUnlockBlockNumber = block.number;
+        _unlockAngstrom();
     }
 
     /**
@@ -374,14 +381,14 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      * @param node The node unlocking the Angstrom network
      * @param signature The signature of the node unlocking the Angstrom network
      */
-    function unlockWithEmptyAttestationCalldata(address node, bytes calldata signature) public {
+    function unlockWithEmptyAttestationCalldata(address node, bytes calldata signature) public onlyWhenLocked {
         bytes32 digest = _ensureUnlockedAndNodeReturningDigest(node);
 
         if (SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature) == false) {
             revert InvalidSignature();
         }
 
-        _lastUnlockBlockNumber = block.number;
+        _unlockAngstrom();
     }
 
     /***************************************************************************
@@ -428,7 +435,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
 
     function _unlockAngstromWithRouter() internal {
         _ensureUnlockedAndRegisteredNode(msg.sender);
-        _lastUnlockBlockNumber = block.number;
+        _unlockAngstrom();
     }
 
     function _isNode(address account) internal view returns (bool) {
@@ -529,5 +536,16 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         for (uint256 i = 0; i < signatureLength; i++) {
             remainingData[i] = userData[i + 20];
         }
+    }
+
+    function _ensureAngstromLocked() internal view {
+        // Only one manual unlock or direct swap is permitted per block.
+        if (_isAngstromUnlocked()) {
+            revert OnlyOncePerBlock();
+        }
+    }
+
+    function _unlockAngstrom() internal {
+        _lastUnlockBlockNumber = block.number;
     }
 }
