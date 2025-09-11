@@ -49,11 +49,11 @@ contract AngstromRouterTest is BaseVaultTest {
 
         SwapPathExactAmountIn[] memory paths;
 
-        vm.startPrank(bob);
-        _angstromBalancer.manualUnlockAngstromWithRouter();
+        _angstromBalancer.manualUnlockAngstrom();
         vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
+
+        vm.prank(bob);
         _angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
-        vm.stopPrank();
     }
 
     function testSwapExactInUnlocksAngstrom() public {
@@ -114,11 +114,12 @@ contract AngstromRouterTest is BaseVaultTest {
         _angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         SwapPathExactAmountOut[] memory paths;
-        vm.startPrank(bob);
-        _angstromBalancer.manualUnlockAngstromWithRouter();
+
+        _angstromBalancer.manualUnlockAngstrom();
+
         vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
+        vm.prank(bob);
         _angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
-        vm.stopPrank();
     }
 
     function testSwapExactOutUnlocksRouter() public {

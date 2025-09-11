@@ -53,7 +53,7 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
  * and tracks the unlocked block in `_lastUnlockBlockNumber`.
  *
  * **Direct operations** (via this router): Only validators can call `swapExactIn`/`swapExactOut`, protected by
- * the `fromValidator` modifier.
+ * the `onlyFromValidator` modifier.
  *
  * **Indirect operations** (via external routers): Anyone with a valid validator signature can execute swaps or
  * unbalanced liquidity operations by providing the signature in `userData` (for liquidity operations) or calldata
@@ -107,7 +107,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     error InvalidSignature();
 
-    modifier fromValidator() {
+    modifier onlyFromValidator() {
         // Only Validators can call direct swaps on this router.
         _ensureRegisteredNode(msg.sender);
         _;
@@ -140,13 +140,13 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     )
         external
         payable
-        fromValidator
+        onlyFromValidator
         onlyWhenLocked
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
         // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
-        _unlockAngstromWithRouter();
+        _unlockAngstrom();
 
         return
             abi.decode(
@@ -175,13 +175,13 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     )
         external
         payable
-        fromValidator
+        onlyFromValidator
         onlyWhenLocked
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
         // Unlocks the Angstrom Network in this block. If the Angstrom Network is already unlocked, reverts.
-        _unlockAngstromWithRouter();
+        _unlockAngstrom();
 
         return
             abi.decode(
@@ -432,11 +432,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     /***************************************************************************
                                 Internal Functions
     ***************************************************************************/
-
-    function _unlockAngstromWithRouter() internal {
-        _ensureUnlockedAndRegisteredNode(msg.sender);
-        _unlockAngstrom();
-    }
 
     function _isNode(address account) internal view returns (bool) {
         return _angstromValidatorNodes[account];

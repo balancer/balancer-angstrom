@@ -47,22 +47,6 @@ contract AngstromBalancerUnitTest is BaseVaultTest {
         assertTrue(_angstromBalancer.isNode(alice), "Alice is not a node after bob was removed");
     }
 
-    function testUnlockAngstromNotNode() public {
-        vm.expectRevert(AngstromBalancer.NotNode.selector);
-        _angstromBalancer.manualUnlockAngstromWithRouter();
-    }
-
-    function testUnlockAngstromTwice() public {
-        vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
-
-        vm.startPrank(bob);
-        _angstromBalancer.manualUnlockAngstromWithRouter();
-        vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
-        _angstromBalancer.manualUnlockAngstromWithRouter();
-        vm.stopPrank();
-    }
-
     function testUnlockAngstromSetsLastUnlockBlockNumber() public {
         vm.prank(admin);
         _angstromBalancer.toggleNodes([bob].toMemoryArray());
@@ -70,7 +54,7 @@ contract AngstromBalancerUnitTest is BaseVaultTest {
         assertEq(_angstromBalancer.getLastUnlockBlockNumber(), 0, "Last unlock block number is not 0");
 
         vm.prank(bob);
-        _angstromBalancer.manualUnlockAngstromWithRouter();
+        _angstromBalancer.manualUnlockAngstrom();
         assertEq(
             _angstromBalancer.getLastUnlockBlockNumber(),
             block.number,

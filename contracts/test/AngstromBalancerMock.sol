@@ -19,8 +19,8 @@ contract AngstromBalancerMock is AngstromBalancer {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function manualUnlockAngstromWithRouter() external {
-        _unlockAngstromWithRouter();
+    function manualUnlockAngstrom() external {
+        _unlockAngstrom();
     }
 
     function getLastUnlockBlockNumber() external view returns (uint256) {
