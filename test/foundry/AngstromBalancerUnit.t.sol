@@ -15,54 +15,54 @@ import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
 contract AngstromBalancerUnitTest is BaseVaultTest {
     using ArrayHelpers for *;
 
-    AngstromBalancerMock private _angstromBalancer;
+    AngstromBalancerMock private angstromBalancer;
 
     function setUp() public virtual override {
         super.setUp();
 
-        _angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
+        angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
 
-        authorizer.grantRole(_angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
+        authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
     }
 
     function testToggleNodesIsAuthenticated() public {
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
     }
 
     function testToggleNodes() public {
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
-        assertTrue(_angstromBalancer.isRegisteredNode(bob), "Bob is not a node");
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        assertTrue(angstromBalancer.isRegisteredNode(bob), "Bob is not a node");
     }
 
     function testAddAndRemoveNodes() public {
         vm.startPrank(admin);
-        _angstromBalancer.toggleNodes([bob, alice].toMemoryArray());
-        assertTrue(_angstromBalancer.isRegisteredNode(bob), "Bob is not a node");
-        assertTrue(_angstromBalancer.isRegisteredNode(alice), "Alice is not a node");
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob, alice].toMemoryArray());
+        assertTrue(angstromBalancer.isRegisteredNode(bob), "Bob is not a node");
+        assertTrue(angstromBalancer.isRegisteredNode(alice), "Alice is not a node");
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
         vm.stopPrank();
-        assertFalse(_angstromBalancer.isRegisteredNode(bob), "Bob is still a node");
-        assertTrue(_angstromBalancer.isRegisteredNode(alice), "Alice is not a node after bob was removed");
+        assertFalse(angstromBalancer.isRegisteredNode(bob), "Bob is still a node");
+        assertTrue(angstromBalancer.isRegisteredNode(alice), "Alice is not a node after bob was removed");
     }
 
     function testUnlockAngstromSetsLastUnlockBlockNumber() public {
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
-        assertEq(_angstromBalancer.getLastUnlockBlockNumber(), 0, "Last unlock block number is not 0");
+        assertEq(angstromBalancer.getLastUnlockBlockNumber(), 0, "Last unlock block number is not 0");
 
         vm.prank(bob);
-        _angstromBalancer.manualUnlockAngstrom();
+        angstromBalancer.manualUnlockAngstrom();
         assertEq(
-            _angstromBalancer.getLastUnlockBlockNumber(),
+            angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
             "Last unlock block number is not the current block number"
         );
     }
 
     function testGetVault() public view {
-        assertEq(address(_angstromBalancer.getVault()), address(vault), "Wrong vault address");
+        assertEq(address(angstromBalancer.getVault()), address(vault), "Wrong vault address");
     }
 }

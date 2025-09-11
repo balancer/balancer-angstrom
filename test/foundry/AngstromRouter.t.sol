@@ -22,49 +22,49 @@ import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
 contract AngstromRouterTest is BaseVaultTest {
     using ArrayHelpers for *;
 
-    AngstromBalancerMock private _angstromBalancer;
+    AngstromBalancerMock private angstromBalancer;
 
     function setUp() public virtual override {
         super.setUp();
         _approveAngstromRouterForAllUsers();
         approveAngstromRouterForPool(IERC20(pool));
-        authorizer.grantRole(_angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
+        authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
     }
 
     function createHook() internal override returns (address) {
         // Creating the router and hook in this function ensures that "pool" has the hook set correctly.
-        _angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
-        return address(_angstromBalancer);
+        angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
+        return address(angstromBalancer);
     }
 
     function testSwapExactInNotNode() public {
         SwapPathExactAmountIn[] memory paths;
         vm.expectRevert(AngstromBalancer.NotNode.selector);
-        _angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactInAlreadyUnlocked() public {
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         SwapPathExactAmountIn[] memory paths;
 
-        _angstromBalancer.manualUnlockAngstrom();
+        angstromBalancer.manualUnlockAngstrom();
         vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
 
         vm.prank(bob);
-        _angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactInUnlocksAngstrom() public {
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         SwapPathExactAmountIn[] memory paths;
         vm.prank(bob);
-        _angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
         assertEq(
-            _angstromBalancer.getLastUnlockBlockNumber(),
+            angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
             "Last unlock block number is not the current block number"
         );
@@ -82,14 +82,14 @@ contract AngstromRouterTest is BaseVaultTest {
             uint256[] memory pathAmountsOutQuery,
             address[] memory tokensOutQuery,
             uint256[] memory amountsOutQuery
-        ) = _angstromBalancer.querySwapExactIn(paths, bob, bytes(""));
+        ) = angstromBalancer.querySwapExactIn(paths, bob, bytes(""));
         vm.revertTo(snapId);
 
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         vm.prank(bob);
-        (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut) = _angstromBalancer
+        (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut) = angstromBalancer
             .swapExactIn(paths, MAX_UINT256, false, bytes(""));
 
         assertEq(pathAmountsOut.length, pathAmountsOutQuery.length, "Path amounts out length is not equal");
@@ -106,31 +106,31 @@ contract AngstromRouterTest is BaseVaultTest {
     function testSwapExactOutNotNode() public {
         SwapPathExactAmountOut[] memory paths;
         vm.expectRevert(AngstromBalancer.NotNode.selector);
-        _angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactOutAlreadyUnlocked() public {
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         SwapPathExactAmountOut[] memory paths;
 
-        _angstromBalancer.manualUnlockAngstrom();
+        angstromBalancer.manualUnlockAngstrom();
 
         vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
         vm.prank(bob);
-        _angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactOutUnlocksRouter() public {
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         SwapPathExactAmountOut[] memory paths;
         vm.prank(bob);
-        _angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
         assertEq(
-            _angstromBalancer.getLastUnlockBlockNumber(),
+            angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
             "Last unlock block number is not the current block number"
         );
@@ -153,14 +153,14 @@ contract AngstromRouterTest is BaseVaultTest {
             uint256[] memory pathAmountsInQuery,
             address[] memory tokensInQuery,
             uint256[] memory amountsInQuery
-        ) = _angstromBalancer.querySwapExactOut(paths, bob, bytes(""));
+        ) = angstromBalancer.querySwapExactOut(paths, bob, bytes(""));
         vm.revertTo(snapId);
 
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         vm.prank(bob);
-        (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn) = _angstromBalancer
+        (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn) = angstromBalancer
             .swapExactOut(paths, MAX_UINT256, false, bytes(""));
 
         assertEq(pathAmountsIn.length, pathAmountsInQuery.length, "Path amounts in length is not equal");
@@ -185,28 +185,28 @@ contract AngstromRouterTest is BaseVaultTest {
 
     function approveAngstromRouterForSender() internal {
         for (uint256 i = 0; i < tokens.length; ++i) {
-            permit2.approve(address(tokens[i]), address(_angstromBalancer), type(uint160).max, type(uint48).max);
+            permit2.approve(address(tokens[i]), address(angstromBalancer), type(uint160).max, type(uint48).max);
         }
 
         for (uint256 i = 0; i < oddDecimalTokens.length; ++i) {
             permit2.approve(
                 address(oddDecimalTokens[i]),
-                address(_angstromBalancer),
+                address(angstromBalancer),
                 type(uint160).max,
                 type(uint48).max
             );
         }
 
         for (uint256 i = 0; i < erc4626Tokens.length; ++i) {
-            permit2.approve(address(erc4626Tokens[i]), address(_angstromBalancer), type(uint160).max, type(uint48).max);
+            permit2.approve(address(erc4626Tokens[i]), address(angstromBalancer), type(uint160).max, type(uint48).max);
         }
     }
 
     function approveAngstromRouterForPool(IERC20 bpt) internal {
         for (uint256 i = 0; i < users.length; ++i) {
             vm.startPrank(users[i]);
-            bpt.approve(address(_angstromBalancer), type(uint256).max);
-            permit2.approve(address(bpt), address(_angstromBalancer), type(uint160).max, type(uint48).max);
+            bpt.approve(address(angstromBalancer), type(uint256).max);
+            permit2.approve(address(bpt), address(angstromBalancer), type(uint160).max, type(uint48).max);
             vm.stopPrank();
         }
     }

@@ -22,17 +22,17 @@ import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
 contract AngstromHookTest is BaseVaultTest {
     using ArrayHelpers for *;
 
-    AngstromBalancerMock private _angstromBalancer;
+    AngstromBalancerMock private angstromBalancer;
 
     function setUp() public virtual override {
         super.setUp();
-        authorizer.grantRole(_angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
+        authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
     }
 
     function createHook() internal override returns (address) {
         // Creating the router and hook in this function ensures that "pool" has the hook set correctly.
-        _angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
-        return address(_angstromBalancer);
+        angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
+        return address(angstromBalancer);
     }
 
     /***************************************************************************
@@ -67,7 +67,7 @@ contract AngstromHookTest is BaseVaultTest {
         (, bytes memory userData) = _generateSignatureAndUserData(bob, aliceKey);
 
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(bob);
@@ -78,12 +78,12 @@ contract AngstromHookTest is BaseVaultTest {
         (, bytes memory userData) = _generateSignatureAndUserData(bob, bobKey);
 
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, userData);
         assertEq(
-            _angstromBalancer.getLastUnlockBlockNumber(),
+            angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
             "Last unlock block number is not the current block number"
         );
@@ -91,15 +91,15 @@ contract AngstromHookTest is BaseVaultTest {
 
     function testOnlyOncePerBlock() public {
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.toggleNodes([bob].toMemoryArray());
 
         (bytes memory signature, ) = _generateSignatureAndUserData(bob, bobKey);
         vm.prank(bob);
-        _angstromBalancer.unlockWithEmptyAttestation(bob, signature);
+        angstromBalancer.unlockWithEmptyAttestation(bob, signature);
 
         vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
         vm.prank(bob);
-        _angstromBalancer.unlockWithEmptyAttestation(bob, signature);
+        angstromBalancer.unlockWithEmptyAttestation(bob, signature);
     }
 
     /***************************************************************************
@@ -136,7 +136,7 @@ contract AngstromHookTest is BaseVaultTest {
         (, bytes memory userData) = _generateSignatureAndUserData(alice, bobKey);
 
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([alice].toMemoryArray());
+        angstromBalancer.toggleNodes([alice].toMemoryArray());
 
         vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(alice);
@@ -147,7 +147,7 @@ contract AngstromHookTest is BaseVaultTest {
         (, bytes memory userData) = _generateSignatureAndUserData(alice, aliceKey);
 
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([alice].toMemoryArray());
+        angstromBalancer.toggleNodes([alice].toMemoryArray());
 
         vm.prank(alice);
         uint256 expectedBptAmountOut = router.addLiquidityUnbalanced(
@@ -158,7 +158,7 @@ contract AngstromHookTest is BaseVaultTest {
             userData
         );
         assertEq(
-            _angstromBalancer.getLastUnlockBlockNumber(),
+            angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
             "Last unlock block number is not the current block number"
         );
@@ -204,7 +204,7 @@ contract AngstromHookTest is BaseVaultTest {
         (, bytes memory userData) = _generateSignatureAndUserData(lp, bobKey);
 
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([lp].toMemoryArray());
+        angstromBalancer.toggleNodes([lp].toMemoryArray());
 
         vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(lp);
@@ -215,7 +215,7 @@ contract AngstromHookTest is BaseVaultTest {
         (, bytes memory userData) = _generateSignatureAndUserData(lp, lpKey);
 
         vm.prank(admin);
-        _angstromBalancer.toggleNodes([lp].toMemoryArray());
+        angstromBalancer.toggleNodes([lp].toMemoryArray());
 
         Balances memory balancesBefore = getBalances(lp);
 
@@ -225,7 +225,7 @@ contract AngstromHookTest is BaseVaultTest {
         Balances memory balancesAfter = getBalances(lp);
 
         assertEq(
-            _angstromBalancer.getLastUnlockBlockNumber(),
+            angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
             "Last unlock block number is not the current block number"
         );
@@ -236,7 +236,7 @@ contract AngstromHookTest is BaseVaultTest {
         address signer,
         uint256 privateKey
     ) private view returns (bytes memory signature, bytes memory userData) {
-        bytes32 hash = _angstromBalancer.getDigest();
+        bytes32 hash = angstromBalancer.getDigest();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
         signature = abi.encodePacked(r, s, v);
         userData = abi.encodePacked(signer, signature);
