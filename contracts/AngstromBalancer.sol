@@ -11,12 +11,7 @@ import { IWETH } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/mis
 import { IBatchRouter } from "@balancer-labs/v3-interfaces/contracts/vault/IBatchRouter.sol";
 import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
-import {
-    SwapPathExactAmountIn,
-    SwapPathExactAmountOut,
-    SwapExactInHookParams,
-    SwapExactOutHookParams
-} from "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { EVMCallModeHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/EVMCallModeHelpers.sol";
@@ -26,31 +21,77 @@ import { RouterCommon } from "@balancer-labs/v3-vault/contracts/RouterCommon.sol
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 /**
- * @notice Angstrom Router and Hook, used to trade against angstrom pools.
- * @dev This contract is a combination of a batch router and a hook. The goal is to only allow swaps and unbalanced
- * liquidity operations for nodes registered as such and with the valid signature for a certain block, before the
- * router and the hook are unlocked. This ensures that the node has preference to trade against pools in a that block,
- * which also ensures that the pool rates are the same as the computed offchain for that block.
- * Notice that unlock is "global" for a certain block, i.e., if a node unlocks a hook or router in a block, all pools
- * are unlocked. Unlocked pools accept any operation (swap, unbalanced liquidity, etc) from any router.
+ * @notice Angstrom Router and Hook, used to trade against Angstrom pools.
+ * @dev This contract is a combination of a batch router and a hook, designed to work with pools traded primarily on
+ * the [Angstrom network](https://github.com/SorellaLabs/angstrom). Angstrom is not an L2, but an application built by
+ * Sorella Labs on Uniswap V4, and here adapted to Balancer. The hook portion is a port from `UnlockHook`; see
+ * https://github.com/SorellaLabs/angstrom/blob/main/contracts/src/modules/UnlockHook.sol. The names of errors and many
+ * functions have been retained for consistency.
+ *
+ * OFF-CHAIN CONTEXT
+ *
+ * The Angstrom network consists of off-chain validator nodes that conduct high-frequency auctions to determine fair
+ * prices and optimal trade settlement, minimizing LVR and effectively eliminating LP losses to MEV.
+ *
+ * Retail traders submit limit orders to network nodes (not directly to Ethereum), while market makers bid for
+ * zero-fee arbitrage rights. The matching system combines both liquidity sources to determine optimal execution
+ * prices, with all participants getting the same auction-determined price per block.
+ *
+ * Similar to Ethereum's consensus layer, the Angstrom network chooses a validator to sign an attestation called
+ * `AttestAngstromBlockEmpty(blockNumber)`, and submit a bundle transaction with all the Angstrom trades for the
+ * current block. Price-altering transactions (swaps and unbalanced liquidity operations) must be coordinated through
+ * this system, while price-neutral operations (queries and proportional liquidity) can bypass Angstrom entirely.
+ *
+ * To prevent front-running, Angstrom uses private mempools before submitting to Ethereum. Since Ethereum validators
+ * control transaction ordering, Angstrom operations may appear in any order within a block - but this doesn't matter
+ * because the first valid operation unlocks the system and everyone in the Angstrom bundle gets the same
+ * pre-negotiated price.
+ *
+ * ON-CHAIN FUNCTIONALITY
+ *
+ * This contract maintains a registry of Angstrom validators in `_angstromValidatorNodes` (managed via `toggleNodes`),
+ * and tracks the unlocked block in `_lastUnlockBlockNumber`.
+ *
+ * **Direct operations** (via this router): Only validators can call `swapExactIn`/`swapExactOut`, protected by
+ * the `fromValidator` modifier.
+ *
+ * **Indirect operations** (via external routers): Anyone with a valid validator signature can execute swaps or
+ * unbalanced liquidity operations by providing the signature in `userData` (for liquidity operations) or calldata
+ * (for swaps). These trades all happen during execution of the Angstrom bundle transaction.
+ *
+ * The first validated operation unlocks the hook for that block. Post-bundle transactions will succeed, but incur
+ * regular fees and prices can diverge from those guaranteed within the Angstrom bundle.
+ *
+ * See [this diagram](https://drive.google.com/file/d/1A4kNi0ocI_V8tWcy3ruGNf-AaoP04bmR/view?usp=sharing).
  */
 contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentication, BaseHooks, EIP712 {
+    /// @dev `keccak256("AttestAngstromBlockEmpty(uint64 block_number)")`.
+    uint256 internal constant _ATTEST_EMPTY_BLOCK_TYPE_HASH =
+        0x3f25e551746414ff93f076a7dd83828ff53735b39366c74015637e004fcb0223;
+
+    /// @dev Set of active Angstrom validator nodes, authorized to unlock this contract for operations.
+    mapping(address node => bool isActive) internal _nodes;
+
+    /// @dev The currently "unlocked" block. The contract is locked if the current block does not equal this number.
     uint256 internal _lastUnlockBlockNumber;
 
     /**
-     * @notice The router and hook can only be unlocked once per block.
-     * @dev The Angstrom router cannot be called twice in the same block. So, this error prevents a transaction from
-     * being called twice in the same block.
+     * @notice This contract can only be unlocked once per block.
+     * @dev This should not happen, but could if an Angstrom validator manually unlocks the contract twice, or manually
+     * unlocks in the same block after the Angstrom bundle has been executed, or if there is more than one direct swap
+     * in the bundle.
      */
     error OnlyOncePerBlock();
 
     /**
-     * @notice The node (sender of transaction) is not registered as an Angstrom node.
-     * @dev The node must be registered as an Angstrom node to be able to trade against angstrom pools before unlock.
+     * @notice An account attempted to unlock this contract that was not a registered Angstrom validator.
+     * @dev The node must be registered as an Angstrom node to unlock the contract for operations, either directly or
+     * by executing a permissioned operation. This can also occur for a valid signature, if the node address is
+     * unregistered.
      */
     error NotNode();
 
-    /// @notice No signature is provided and Angstrom network is still locked.
+    /// @notice A user attempted a swap without a signature.
     error CannotSwapWhileLocked();
 
     /**
@@ -59,14 +100,12 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     error UnlockDataTooShort();
 
-    /// @notice The signature matches the length, the node address is registered, but the hashed message is wrong.
+    /**
+     * @notice The signature provided on a swap or liquidity operation was invalid.
+     * @dev The user provided a signature of the correct length, and the node address is registered, but the hashed
+     * message is wrong.
+     */
     error InvalidSignature();
-
-    /// @dev `keccak256("AttestAngstromBlockEmpty(uint64 block_number)")`
-    uint256 internal constant _ATTEST_EMPTY_BLOCK_TYPE_HASH =
-        0x3f25e551746414ff93f076a7dd83828ff53735b39366c74015637e004fcb0223;
-
-    mapping(address => bool) internal _nodes;
 
     constructor(
         IVault vault,
@@ -80,6 +119,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     /***************************************************************************
                                        Swaps
     ***************************************************************************/
+
     /// @inheritdoc IBatchRouter
     function swapExactIn(
         SwapPathExactAmountIn[] memory paths,
@@ -150,6 +190,9 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
                                      Queries
     ***************************************************************************/
 
+    // Note that queries do not require coordination with Angstrom, and can be called by anyone at any time.
+    // We include them here to satisfy the IBatchRouter interface.
+
     /// @inheritdoc IBatchRouterQueries
     function querySwapExactIn(
         SwapPathExactAmountIn[] memory paths,
@@ -160,7 +203,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         saveSender(sender)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
-        // This is a regular query, no need to unlock Angstrom network. It's in here to comply with IBatchRouter.
         for (uint256 i = 0; i < paths.length; ++i) {
             paths[i].minAmountOut = 0;
         }
@@ -193,8 +235,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         saveSender(sender)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
-        // This is a regular query, no need to unlock Angstrom network. It's in here to comply with IBatchRouter.
-
         for (uint256 i = 0; i < paths.length; ++i) {
             paths[i].maxAmountIn = _MAX_AMOUNT;
         }
@@ -260,12 +300,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         uint256[] memory,
         bytes memory userData
     ) public override returns (bool) {
-        // If the liquidity operation is proportional, rates are not affected, so it's a safe operation. Unbalanced
-        // liquidity operations affects the rate, so we need to unlock the Angstrom network.
+        // If the liquidity operation is proportional, prices are not affected, so it's a safe operation. Unbalanced
+        // liquidity operations do affect prices, so we need to unlock the Angstrom network.
         if (kind != AddLiquidityKind.PROPORTIONAL) {
-            // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
-            // Differently from the unlock in the router, an unlock in the hook level requires a signature, because any
-            // router can call it.
+            // Unlocks the Angstrom network in this block, if necessary. An unlock through a hook requires a signature,
+            // since any router can be used.
             _unlockAngstromWithHook(userData);
         }
 
@@ -283,12 +322,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         uint256[] memory,
         bytes memory userData
     ) public override returns (bool) {
-        // If the liquidity operation is proportional, rates are not affected, so it's a safe operation. Unbalanced
-        // liquidity operations affects the rate, so we need to unlock the Angstrom network.
+        // If the liquidity operation is proportional, prices are not affected, so it's a safe operation. Unbalanced
+        // liquidity operations do affect prices, so we need to unlock the Angstrom network.
         if (kind != RemoveLiquidityKind.PROPORTIONAL) {
-            // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
-            // Differently from the unlock in the router, an unlock in the hook level requires a signature, because any
-            // router can call it.
+            // Unlocks the Angstrom network in this block, if necessary. An unlock through a hook requires a signature,
+            // since any router can be used.
             _unlockAngstromWithHook(userData);
         }
 
@@ -296,15 +334,18 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         return true;
     }
 
+    /***************************************************************************
+                                Manual Unlock
+    ***************************************************************************/
+
     /**
-     * @notice Unlocks the Angstrom network.
-     * @dev This function is used to unlock the Angstrom network. To be able to do that, the node must be registered as
-     * an Angstrom node and the signature must be valid (it means, the hash mush match the expected hash, according to
-     * EIP-712). Also, this function waits a signature located in the memory (as sent through the liquidity hooks). For
-     * swap hook, check `unlockWithEmptyAttestationCalldata`.
+     * @notice Unlocks the Angstrom network without requiring an operation.
+     * @dev This function is used to manually unlock the Angstrom network. To be able to do that, the node must be
+     * registered as an Angstrom node, and the signature must be valid (i.e., the hash must match the expected value
+     * per EIP-712).
      *
-     * @param node The node that is unlocking the Angstrom network
-     * @param signature The signature of the node that is unlocking the Angstrom network
+     * @param node The node unlocking the Angstrom network
+     * @param signature The signature of the node unlocking the Angstrom network
      */
     function unlockWithEmptyAttestation(address node, bytes memory signature) public {
         bytes32 digest = _ensureUnlockedAndNodeReturningDigest(node);
@@ -317,14 +358,13 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     }
 
     /**
-     * @notice Unlocks the Angstrom network.
-     * @dev This function is used to unlock the Angstrom network. To be able to do that, the node must be registered as
-     * an Angstrom node and the signature must be valid (it means, the hash mush match the expected hash, according to
-     * EIP-712). Also, this function waits a signature located in the calldata (as sent through the swap hooks). For
-     * liquidity hooks, check `unlockWithEmptyAttestation`.
+     * @notice Unlocks the Angstrom network without requiring an operation.
+     * @dev This function is used to manually unlock the Angstrom network. To be able to do that, the node must be
+     * registered as an Angstrom node, and the signature must be valid (i.e., the hash must match the expected value
+     * per EIP-712).
      *
-     * @param node The node that is unlocking the Angstrom network
-     * @param signature The signature of the node that is unlocking the Angstrom network
+     * @param node The node unlocking the Angstrom network
+     * @param signature The signature of the node unlocking the Angstrom network
      */
     function unlockWithEmptyAttestationCalldata(address node, bytes calldata signature) public {
         bytes32 digest = _ensureUnlockedAndNodeReturningDigest(node);
@@ -355,11 +395,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     ***************************************************************************/
 
     /**
-     * @notice Get the vault contract.
+     * @notice Get the Vault contract.
      * @dev This function is needed since RouterCommon and SingletonAuthentication implementations of getVault()
      * collide.
      *
-     * @return vault The vault contract
+     * @return vault The address of the Vault contract
      */
     function getVault() public view override(RouterCommon, SingletonAuthentication) returns (IVault vault) {
         return _vault;
@@ -446,17 +486,18 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         return _hashTypedData(attestationStructHash);
     }
 
-    // TODO Explain why we need this function
+    // The first 20 bytes of the user data is the node address; the rest is the signature.
+    // This function separates the two so that the node signature can be verified.
     function _splitUserData(
         bytes memory userData
     ) internal pure returns (address extractedAddress, bytes memory remainingData) {
         uint256 signatureLength = userData.length - 20;
 
-        // Extract first 20 bytes as address
+        // Extract first 20 bytes as address.
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            // `add(userData, 32)` is a pointer to the start of the data
-            // `shr(96, mload(...))` right-shifts 12 bytes (96 bits) to fit into 20 bytes
+            // `add(userData, 32)` is a pointer to the start of the data.
+            // `shr(96, mload(...))` right-shifts 12 bytes (96 bits) to fit into 20 bytes.
             extractedAddress := shr(96, mload(add(userData, 32)))
         }
 
