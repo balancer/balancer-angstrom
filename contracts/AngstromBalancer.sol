@@ -107,6 +107,12 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     error InvalidSignature();
 
+    modifier fromValidator() {
+        // Only Validators can call direct swaps on this router.
+        _ensureRegisteredNode(msg.sender);
+        _;
+    }
+
     constructor(
         IVault vault,
         IWETH weth,
@@ -129,6 +135,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     )
         external
         payable
+        fromValidator
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
@@ -162,6 +169,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     )
         external
         payable
+        fromValidator
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
@@ -405,8 +413,17 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         return _vault;
     }
 
+    /**
+     * @notice Check whether a given account is a registered Angstrom node.
+     * @param account The address being checked for node status
+     * @return isNode True if the address is a registered Angstrom node
+     */
+    function isRegisteredNode(address account) public view returns (bool) {
+        return _angstromValidatorNodes[account];
+    }
+
     /***************************************************************************
-                                Private Functions
+                                Internal Functions
     ***************************************************************************/
 
     function _unlockAngstromWithRouter() internal {
@@ -455,6 +472,12 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
 
     function _domainNameAndVersion() internal pure override returns (string memory, string memory) {
         return ("Angstrom", "v1");
+    }
+
+    function _ensureRegisteredNode(address account) internal view {
+        if (isRegisteredNode(account) == false) {
+            revert NotNode();
+        }
     }
 
     function _ensureUnlockedAndNodeReturningDigest(address node) internal view returns (bytes32) {
