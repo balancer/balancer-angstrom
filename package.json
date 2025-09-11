@@ -17,18 +17,14 @@
     "Elshan Dzhafarov <elshan@balancerlabs.dev>"
   ],
   "scripts": {
-    "compile": "hardhat compile",
-    "compile:watch": "nodemon --ext sol --exec yarn compile",
+    "build": "yarn workspaces foreach --parallel --jobs unlimited --verbose run build && rm -rf artifacts/build-info",
     "lint": "yarn lint:solidity && yarn lint:typescript",
     "lint:solidity": "npx prettier --check --plugin=prettier-plugin-solidity 'contracts/**/*.sol' ''test/**/*.sol'' && npx solhint 'contracts/**/*.sol'",
     "lint:typescript": "NODE_NO_WARNINGS=1 eslint  --ext .ts --ignore-path ./.eslintignore  --max-warnings 0",
     "prettier": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol' 'test/**/*.sol'",
-    "test": "yarn test:hardhat && yarn test:forge",
-    "test:hardhat": "hardhat test",
+    "test": "yarn test:forge",
     "test:forge": "forge test --ffi -vvv",
-    "coverage": "./coverage.sh forge",
-    "coverage:hardhat": "./coverage.sh hardhat",
-    "coverage:all": "./coverage.sh all"
+    "coverage": "./coverage.sh forge"
   },
   "packageManager": "yarn@4.0.0-rc.42",
   "dependencies": {
