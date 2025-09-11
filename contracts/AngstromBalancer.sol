@@ -70,7 +70,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         0x3f25e551746414ff93f076a7dd83828ff53735b39366c74015637e004fcb0223;
 
     /// @dev Set of active Angstrom validator nodes, authorized to unlock this contract for operations.
-    mapping(address node => bool isActive) internal _nodes;
+    mapping(address node => bool isActive) internal _angstromValidatorNodes;
 
     /// @dev The currently "unlocked" block. The contract is locked if the current block does not equal this number.
     uint256 internal _lastUnlockBlockNumber;
@@ -386,7 +386,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     function toggleNodes(address[] memory nodes) external authenticate {
         for (uint256 i = 0; i < nodes.length; i++) {
-            _nodes[nodes[i]] = !_nodes[nodes[i]];
+            _angstromValidatorNodes[nodes[i]] = !_angstromValidatorNodes[nodes[i]];
         }
     }
 
@@ -415,7 +415,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     }
 
     function _isNode(address account) internal view returns (bool) {
-        return _nodes[account];
+        return _angstromValidatorNodes[account];
     }
 
     function _isAngstromUnlocked() internal view returns (bool) {
