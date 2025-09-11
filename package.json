@@ -23,6 +23,7 @@
     "lint:typescript": "NODE_NO_WARNINGS=1 eslint  --ext .ts --ignore-path ./.eslintignore  --max-warnings 0",
     "prettier": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol' 'test/**/*.sol'",
     "test": "yarn test:forge",
+    "test:hardhat": "hardhat test",
     "test:forge": "forge test --ffi -vvv",
     "coverage": "./coverage.sh forge"
   },
