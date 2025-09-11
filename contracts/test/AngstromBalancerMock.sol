@@ -23,14 +23,6 @@ contract AngstromBalancerMock is AngstromBalancer {
         _unlockAngstrom();
     }
 
-    function getLastUnlockBlockNumber() external view returns (uint256) {
-        return _lastUnlockBlockNumber;
-    }
-
-    function isNode(address account) external view returns (bool) {
-        return _isNode(account);
-    }
-
     function getDigest() external view returns (bytes32) {
         return _getDigest();
     }

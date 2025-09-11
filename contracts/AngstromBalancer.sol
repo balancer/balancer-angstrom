@@ -320,10 +320,10 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         if (kind != AddLiquidityKind.PROPORTIONAL) {
             // Unlocks the Angstrom network in this block, if necessary. An unlock through a hook requires a signature,
             // since any router can be used.
-            _unlockAngstromWithHook(userData);
+            _unlockAngstromWithSignature(userData);
         }
 
-        // If the signature is wrong, the hook will revert in the _unlockAngstromWithHook` function.
+        // If the signature is wrong, the hook will revert in the _unlockAngstromWithSignature` function.
         return true;
     }
 
@@ -342,11 +342,25 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         if (kind != RemoveLiquidityKind.PROPORTIONAL) {
             // Unlocks the Angstrom network in this block, if necessary. An unlock through a hook requires a signature,
             // since any router can be used.
-            _unlockAngstromWithHook(userData);
+            _unlockAngstromWithSignature(userData);
         }
 
-        // If the signature is wrong, the hook will revert in the _unlockAngstromWithHook` function.
+        // If the signature is wrong, the hook will revert in the _unlockAngstromWithSignature` function.
         return true;
+    }
+
+    /***************************************************************************
+                                 Node Management
+    ***************************************************************************/
+
+    /**
+     * @notice Register/unregister nodes for a given block.
+     * @param nodes The nodes to toggle (register/unregister)
+     */
+    function toggleNodes(address[] memory nodes) external authenticate {
+        for (uint256 i = 0; i < nodes.length; i++) {
+            _angstromValidatorNodes[nodes[i]] = !_angstromValidatorNodes[nodes[i]];
+        }
     }
 
     /***************************************************************************
@@ -362,26 +376,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      * @param node The node unlocking the Angstrom network
      * @param signature The signature of the node unlocking the Angstrom network
      */
-    function unlockWithEmptyAttestation(address node, bytes memory signature) public onlyWhenLocked {
-        bytes32 digest = _ensureUnlockedAndNodeReturningDigest(node);
-
-        if (SignatureCheckerLib.isValidSignatureNow(node, digest, signature) == false) {
-            revert InvalidSignature();
-        }
-
-        _unlockAngstrom();
-    }
-
-    /**
-     * @notice Unlocks the Angstrom network without requiring an operation.
-     * @dev This function is used to manually unlock the Angstrom network. To be able to do that, the node must be
-     * registered as an Angstrom node, and the signature must be valid (i.e., the hash must match the expected value
-     * per EIP-712).
-     *
-     * @param node The node unlocking the Angstrom network
-     * @param signature The signature of the node unlocking the Angstrom network
-     */
-    function unlockWithEmptyAttestationCalldata(address node, bytes calldata signature) public onlyWhenLocked {
+    function unlockWithEmptyAttestation(address node, bytes calldata signature) external onlyWhenLocked {
         bytes32 digest = _ensureUnlockedAndNodeReturningDigest(node);
 
         if (SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature) == false) {
@@ -389,20 +384,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         }
 
         _unlockAngstrom();
-    }
-
-    /***************************************************************************
-                                 Nodes Management
-    ***************************************************************************/
-
-    /**
-     * @notice Register/unregister nodes for a given block.
-     * @param nodes The nodes to toggle (register/unregister)
-     */
-    function toggleNodes(address[] memory nodes) external authenticate {
-        for (uint256 i = 0; i < nodes.length; i++) {
-            _angstromValidatorNodes[nodes[i]] = !_angstromValidatorNodes[nodes[i]];
-        }
     }
 
     /***************************************************************************
@@ -421,6 +402,15 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     }
 
     /**
+     * @notice Get the block number the last time this contract was locked.
+     * @dev If it is equal to the current block number, the contract is unlocked.
+     * @return lastUnlockBlockNumber The block number when the contract was last locked
+     */
+    function getLastUnlockBlockNumber() external view returns (uint256) {
+        return _lastUnlockBlockNumber;
+    }
+
+    /**
      * @notice Check whether a given account is a registered Angstrom node.
      * @param account The address being checked for node status
      * @return isNode True if the address is a registered Angstrom node
@@ -433,25 +423,30 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
                                 Internal Functions
     ***************************************************************************/
 
-    function _isNode(address account) internal view returns (bool) {
-        return _angstromValidatorNodes[account];
+    /// @inheritdoc EIP712
+    function _domainNameAndVersion() internal pure override returns (string memory, string memory) {
+        return ("Angstrom", "v1");
     }
 
     function _isAngstromUnlocked() internal view returns (bool) {
         return _lastUnlockBlockNumber == block.number;
     }
 
-    function _unlockAngstromWithHook(bytes memory userData) internal {
-        // If the call is a query, do not revert if the block is unlocked.
+    function _unlockAngstromWithSignature(bytes memory userData) internal {
+        // Queries are always allowed.
         if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
             if (userData.length < 20) {
                 if (userData.length == 0) {
+                    // No signature was provided.
                     revert CannotSwapWhileLocked();
                 }
+
+                // The provided signature is not long enough to be valid.
                 revert UnlockDataTooShort();
             } else {
                 (address node, bytes memory signature) = _splitUserData(userData);
-                unlockWithEmptyAttestation(node, signature);
+                // The signature looks well-formed. Revert if it doesn't correspond to a registered node.
+                _unlockWithEmptyAttestationFromUserData(node, signature);
             }
         }
     }
@@ -467,18 +462,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
             } else {
                 address node = address(bytes20(userData[:20]));
                 bytes calldata signature = userData[20:];
-                unlockWithEmptyAttestationCalldata(node, signature);
+                _unlockWithEmptyAttestation(node, signature);
             }
-        }
-    }
-
-    function _domainNameAndVersion() internal pure override returns (string memory, string memory) {
-        return ("Angstrom", "v1");
-    }
-
-    function _ensureRegisteredNode(address account) internal view {
-        if (isRegisteredNode(account) == false) {
-            revert NotNode();
         }
     }
 
@@ -495,7 +480,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         }
 
         // The "unlocker" must be a registered node of the Angstrom network.
-        if (_isNode(node) == false) {
+        if (isRegisteredNode(node) == false) {
             revert NotNode();
         }
     }
@@ -530,6 +515,40 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         remainingData = new bytes(signatureLength);
         for (uint256 i = 0; i < signatureLength; i++) {
             remainingData[i] = userData[i + 20];
+        }
+    }
+
+    // Signature passed in calldata (swaps).
+    function _unlockWithEmptyAttestation(address node, bytes calldata signature) internal {
+        bytes32 digest = _ensuredRegisteredNodeAndReturnDigest(node);
+
+        if (SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature) == false) {
+            revert InvalidSignature();
+        }
+
+        _unlockAngstrom();
+    }
+
+    // Signature passed in memory (from userData).
+    function _unlockWithEmptyAttestationFromUserData(address node, bytes memory signature) internal {
+        bytes32 digest = _ensuredRegisteredNodeAndReturnDigest(node);
+
+        if (SignatureCheckerLib.isValidSignatureNow(node, digest, signature) == false) {
+            revert InvalidSignature();
+        }
+
+        _unlockAngstrom();
+    }
+
+    function _ensuredRegisteredNodeAndReturnDigest(address account) internal view returns (bytes32) {
+        _ensureRegisteredNode(account);
+
+        return _getDigest();
+    }
+
+    function _ensureRegisteredNode(address account) internal view {
+        if (isRegisteredNode(account) == false) {
+            revert NotNode();
         }
     }
 

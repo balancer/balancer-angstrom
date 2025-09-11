@@ -33,18 +33,18 @@ contract AngstromBalancerUnitTest is BaseVaultTest {
     function testToggleNodes() public {
         vm.prank(admin);
         _angstromBalancer.toggleNodes([bob].toMemoryArray());
-        assertTrue(_angstromBalancer.isNode(bob), "Bob is not a node");
+        assertTrue(_angstromBalancer.isRegisteredNode(bob), "Bob is not a node");
     }
 
     function testAddAndRemoveNodes() public {
         vm.startPrank(admin);
         _angstromBalancer.toggleNodes([bob, alice].toMemoryArray());
-        assertTrue(_angstromBalancer.isNode(bob), "Bob is not a node");
-        assertTrue(_angstromBalancer.isNode(alice), "Alice is not a node");
+        assertTrue(_angstromBalancer.isRegisteredNode(bob), "Bob is not a node");
+        assertTrue(_angstromBalancer.isRegisteredNode(alice), "Alice is not a node");
         _angstromBalancer.toggleNodes([bob].toMemoryArray());
         vm.stopPrank();
-        assertFalse(_angstromBalancer.isNode(bob), "Bob is still a node");
-        assertTrue(_angstromBalancer.isNode(alice), "Alice is not a node after bob was removed");
+        assertFalse(_angstromBalancer.isRegisteredNode(bob), "Bob is still a node");
+        assertTrue(_angstromBalancer.isRegisteredNode(alice), "Alice is not a node after bob was removed");
     }
 
     function testUnlockAngstromSetsLastUnlockBlockNumber() public {

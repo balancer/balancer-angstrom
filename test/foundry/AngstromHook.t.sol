@@ -102,19 +102,6 @@ contract AngstromHookTest is BaseVaultTest {
         _angstromBalancer.unlockWithEmptyAttestation(bob, signature);
     }
 
-    function testOnlyOncePerBlockCalldata() public {
-        vm.prank(admin);
-        _angstromBalancer.toggleNodes([bob].toMemoryArray());
-
-        (bytes memory signature, ) = _generateSignatureAndUserData(bob, bobKey);
-        vm.prank(bob);
-        _angstromBalancer.unlockWithEmptyAttestationCalldata(bob, signature);
-
-        vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
-        vm.prank(bob);
-        _angstromBalancer.unlockWithEmptyAttestationCalldata(bob, signature);
-    }
-
     /***************************************************************************
                                  Add Liquidity
     ***************************************************************************/
