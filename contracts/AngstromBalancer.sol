@@ -53,7 +53,7 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
  * and tracks the unlocked block in `_lastUnlockBlockNumber`.
  *
  * **Direct operations** (via this router): Only validators can call `swapExactIn`/`swapExactOut`, protected by
- * the `onlyFromValidator` modifier.
+ * the `onlyValidatorNode` modifier.
  *
  * **Indirect operations** (via external routers): Anyone with a valid validator signature can execute swaps or
  * unbalanced liquidity operations by providing the signature in `userData` (for liquidity operations) or calldata
@@ -107,7 +107,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     error InvalidSignature();
 
-    modifier onlyFromValidator() {
+    modifier onlyValidatorNode() {
         // Only Validators can call direct swaps on this router.
         _ensureRegisteredNode(msg.sender);
         _;
@@ -140,12 +140,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     )
         external
         payable
-        onlyFromValidator
+        onlyValidatorNode
         onlyWhenLocked
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
-        // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
         _unlockAngstrom();
 
         return
@@ -175,12 +174,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     )
         external
         payable
-        onlyFromValidator
+        onlyValidatorNode
         onlyWhenLocked
         saveSender(msg.sender)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
-        // Unlocks the Angstrom Network in this block. If the Angstrom Network is already unlocked, reverts.
         _unlockAngstrom();
 
         return
@@ -296,12 +294,25 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
 
     /// @inheritdoc IHooks
     function onBeforeSwap(PoolSwapParams calldata params, address) public override returns (bool) {
-        // Unlocks the Angstrom network in this block. If the Angstrom network is already unlocked, reverts.
-        // Differently from the unlock in the router, an unlock in the hook level requires a signature, because any
-        // router can call it.
-        _unlockAngstromWithHookCalldata(params.userData);
+        // Queries are always allowed.
+        if (EVMCallModeHelpers.isStaticCall()) {
+            return true;
+        }
 
-        // If the signature is wrong, the hook will revert in the _unlockAngstromWithHookCalldata` function.
+        // If Angstrom is already unlocked, allow the swap.
+        if (_isAngstromUnlocked() == false) {
+            if (params.userData.length < 20) {
+                if (params.userData.length == 0) {
+                    revert CannotSwapWhileLocked();
+                }
+                revert UnlockDataTooShort();
+            } else {
+                address node = address(bytes20(params.userData[:20]));
+                bytes calldata signature = params.userData[20:];
+                _unlockWithEmptyAttestation(node, signature);
+            }
+        }
+
         return true;
     }
 
@@ -447,22 +458,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
                 (address node, bytes memory signature) = _splitUserData(userData);
                 // The signature looks well-formed. Revert if it doesn't correspond to a registered node.
                 _unlockWithEmptyAttestationFromUserData(node, signature);
-            }
-        }
-    }
-
-    function _unlockAngstromWithHookCalldata(bytes calldata userData) internal {
-        // If the call is a query, do not revert if the block is unlocked.
-        if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
-            if (userData.length < 20) {
-                if (userData.length == 0) {
-                    revert CannotSwapWhileLocked();
-                }
-                revert UnlockDataTooShort();
-            } else {
-                address node = address(bytes20(userData[:20]));
-                bytes calldata signature = userData[20:];
-                _unlockWithEmptyAttestation(node, signature);
             }
         }
     }
