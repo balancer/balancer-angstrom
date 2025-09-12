@@ -456,20 +456,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         }
     }
 
-    function _ensureUnlockedAndNodeReturningDigest(address node) internal view returns (bytes32) {
-        // The router can only be unlocked once per block.
-        if (_isAngstromUnlocked()) {
-            revert OnlyOncePerBlock();
-        }
-
-        // The "unlocker" must be a registered node of the Angstrom network.
-        if (isRegisteredNode(node) == false) {
-            revert NotNode();
-        }
-
-        return _getDigest();
-    }
-
     function _getDigest() internal view returns (bytes32) {
         bytes32 attestationStructHash;
         // solhint-disable-next-line no-inline-assembly
