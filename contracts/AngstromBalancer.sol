@@ -302,10 +302,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         // If Angstrom is already unlocked, allow the swap.
         if (_isAngstromUnlocked() == false) {
             if (params.userData.length < 20) {
-                if (params.userData.length == 0) {
-                    revert CannotSwapWhileLocked();
-                }
-                revert UnlockDataTooShort();
+                _processInvalidUserData(params.userData);
             } else {
                 address node = address(bytes20(params.userData[:20]));
                 bytes calldata signature = params.userData[20:];
@@ -441,13 +438,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         // Queries are always allowed.
         if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
             if (userData.length < 20) {
-                if (userData.length == 0) {
-                    // No signature was provided.
-                    revert CannotSwapWhileLocked();
-                }
-
-                // The provided signature is not long enough to be valid.
-                revert UnlockDataTooShort();
+                _processInvalidUserData(userData);
             } else {
                 (address node, bytes memory signature) = _splitUserData(userData);
                 // The signature looks well-formed. Revert if it doesn't correspond to a registered node.
@@ -487,6 +478,16 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         for (uint256 i = 0; i < signatureLength; i++) {
             remainingData[i] = userData[i + 20];
         }
+    }
+
+    function _processInvalidUserData(bytes memory userData) internal pure {
+        if (userData.length == 0) {
+            // No signature was provided.
+            revert CannotSwapWhileLocked();
+        }
+
+        // The provided signature is not long enough to be valid.
+        revert UnlockDataTooShort();
     }
 
     // Signature passed in calldata (swaps).
