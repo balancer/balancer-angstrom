@@ -375,7 +375,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     }
 
     /***************************************************************************
-                                Manual Unlock
+                                   Manual Unlock
     ***************************************************************************/
 
     /**
@@ -388,13 +388,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      * @param signature The signature of the node unlocking the Angstrom network
      */
     function unlockWithEmptyAttestation(address node, bytes calldata signature) external onlyWhenLocked {
-        bytes32 digest = _ensureUnlockedAndNodeReturningDigest(node);
-
-        if (SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature) == false) {
-            revert InvalidSignature();
-        }
-
-        _unlockAngstrom();
+        _unlockWithEmptyAttestation(node, signature);
     }
 
     /***************************************************************************
