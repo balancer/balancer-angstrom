@@ -361,20 +361,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     }
 
     /***************************************************************************
-                                 Node Management
-    ***************************************************************************/
-
-    /**
-     * @notice Register/unregister nodes for a given block.
-     * @param nodes The nodes to toggle (register/unregister)
-     */
-    function toggleNodes(address[] memory nodes) external authenticate {
-        for (uint256 i = 0; i < nodes.length; i++) {
-            _angstromValidatorNodes[nodes[i]] = !_angstromValidatorNodes[nodes[i]];
-        }
-    }
-
-    /***************************************************************************
                                    Manual Unlock
     ***************************************************************************/
 
@@ -389,6 +375,20 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     function unlockWithEmptyAttestation(address node, bytes calldata signature) external onlyWhenLocked {
         _unlockWithEmptyAttestation(node, signature);
+    }
+
+    /***************************************************************************
+                                 Node Management
+    ***************************************************************************/
+
+    /**
+     * @notice Register/unregister nodes for a given block.
+     * @param nodes The nodes to toggle (register/unregister)
+     */
+    function toggleNodes(address[] memory nodes) external authenticate {
+        for (uint256 i = 0; i < nodes.length; i++) {
+            _angstromValidatorNodes[nodes[i]] = !_angstromValidatorNodes[nodes[i]];
+        }
     }
 
     /***************************************************************************
@@ -457,12 +457,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     }
 
     function _ensureUnlockedAndNodeReturningDigest(address node) internal view returns (bytes32) {
-        _ensureUnlockedAndRegisteredNode(node);
-
-        return _getDigest();
-    }
-
-    function _ensureUnlockedAndRegisteredNode(address node) internal view {
         // The router can only be unlocked once per block.
         if (_isAngstromUnlocked()) {
             revert OnlyOncePerBlock();
@@ -472,6 +466,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         if (isRegisteredNode(node) == false) {
             revert NotNode();
         }
+
+        return _getDigest();
     }
 
     function _getDigest() internal view returns (bytes32) {
@@ -509,7 +505,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
 
     // Signature passed in calldata (swaps).
     function _unlockWithEmptyAttestation(address node, bytes calldata signature) internal {
-        bytes32 digest = _ensuredRegisteredNodeAndReturnDigest(node);
+        bytes32 digest = _ensureRegisteredNodeAndReturnDigest(node);
 
         if (SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature) == false) {
             revert InvalidSignature();
@@ -520,7 +516,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
 
     // Signature passed in memory (from userData).
     function _unlockWithEmptyAttestationFromUserData(address node, bytes memory signature) internal {
-        bytes32 digest = _ensuredRegisteredNodeAndReturnDigest(node);
+        bytes32 digest = _ensureRegisteredNodeAndReturnDigest(node);
 
         if (SignatureCheckerLib.isValidSignatureNow(node, digest, signature) == false) {
             revert InvalidSignature();
@@ -529,7 +525,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         _unlockAngstrom();
     }
 
-    function _ensuredRegisteredNodeAndReturnDigest(address account) internal view returns (bytes32) {
+    function _ensureRegisteredNodeAndReturnDigest(address account) internal view returns (bytes32) {
         _ensureRegisteredNode(account);
 
         return _getDigest();
