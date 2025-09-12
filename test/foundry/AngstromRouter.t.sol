@@ -14,27 +14,19 @@ import {
 } from "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
-import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
 import { AngstromBalancerMock } from "../../contracts/test/AngstromBalancerMock.sol";
 import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
+import { BaseAngstromTest } from "./utils/BaseAngstromTest.sol";
 
-contract AngstromRouterTest is BaseVaultTest {
+contract AngstromRouterTest is BaseAngstromTest {
     using ArrayHelpers for *;
 
-    AngstromBalancerMock private angstromBalancer;
-
     function setUp() public virtual override {
-        super.setUp();
+        BaseAngstromTest.setUp();
+
         _approveAngstromRouterForAllUsers();
         approveAngstromRouterForPool(IERC20(pool));
-        authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
-    }
-
-    function createHook() internal override returns (address) {
-        // Creating the router and hook in this function ensures that "pool" has the hook set correctly.
-        angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
-        return address(angstromBalancer);
     }
 
     function testSwapExactInNotNode() public {
@@ -44,8 +36,7 @@ contract AngstromRouterTest is BaseVaultTest {
     }
 
     function testSwapExactInAlreadyUnlocked() public {
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        makeAngstromNode(bob);
 
         SwapPathExactAmountIn[] memory paths;
 
@@ -57,10 +48,10 @@ contract AngstromRouterTest is BaseVaultTest {
     }
 
     function testSwapExactInUnlocksAngstrom() public {
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        makeAngstromNode(bob);
 
         SwapPathExactAmountIn[] memory paths;
+
         vm.prank(bob);
         angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
         assertEq(
@@ -85,8 +76,7 @@ contract AngstromRouterTest is BaseVaultTest {
         ) = angstromBalancer.querySwapExactIn(paths, bob, bytes(""));
         vm.revertTo(snapId);
 
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        makeAngstromNode(bob);
 
         vm.prank(bob);
         (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut) = angstromBalancer
@@ -110,8 +100,7 @@ contract AngstromRouterTest is BaseVaultTest {
     }
 
     function testSwapExactOutAlreadyUnlocked() public {
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        makeAngstromNode(bob);
 
         SwapPathExactAmountOut[] memory paths;
 
@@ -123,8 +112,7 @@ contract AngstromRouterTest is BaseVaultTest {
     }
 
     function testSwapExactOutUnlocksRouter() public {
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        makeAngstromNode(bob);
 
         SwapPathExactAmountOut[] memory paths;
         vm.prank(bob);
@@ -156,8 +144,7 @@ contract AngstromRouterTest is BaseVaultTest {
         ) = angstromBalancer.querySwapExactOut(paths, bob, bytes(""));
         vm.revertTo(snapId);
 
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        makeAngstromNode(bob);
 
         vm.prank(bob);
         (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn) = angstromBalancer

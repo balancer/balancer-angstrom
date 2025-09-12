@@ -13,38 +13,23 @@ import {
 } from "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
-import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
 import { AngstromBalancerMock } from "../../contracts/test/AngstromBalancerMock.sol";
 import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
+import { BaseAngstromTest } from "./utils/BaseAngstromTest.sol";
 
-contract AngstromHookTest is BaseVaultTest {
+contract AngstromHookTest is BaseAngstromTest {
     using ArrayHelpers for *;
-
-    AngstromBalancerMock private angstromBalancer;
-
-    function setUp() public virtual override {
-        super.setUp();
-        authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
-    }
-
-    function createHook() internal override returns (address) {
-        // Creating the router and hook in this function ensures that "pool" has the hook set correctly.
-        angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
-        return address(angstromBalancer);
-    }
 
     /***************************************************************************
                                     Swaps
     ***************************************************************************/
 
     function testOnBeforeSwapNotNode() public {
-        (, bytes memory userData) = _generateSignatureAndUserData(bob, bobKey);
-
         vm.expectRevert(AngstromBalancer.NotNode.selector);
         vm.prank(bob);
-        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, userData);
+        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bobUserData);
     }
 
     function testOnBeforeSwapCannotSwapWhileLocked() public {
@@ -64,7 +49,7 @@ contract AngstromHookTest is BaseVaultTest {
 
     function testOnBeforeSwapInvalidSignature() public {
         // If the signature is invalid, the hook reverts (in this case, signer and key do not match).
-        (, bytes memory userData) = _generateSignatureAndUserData(bob, aliceKey);
+        (, bytes memory userData) = generateSignatureAndUserData(bob, aliceKey);
 
         vm.prank(admin);
         angstromBalancer.toggleNodes([bob].toMemoryArray());
@@ -75,13 +60,10 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function testOnBeforeSwapSucceedsAndSetBlockNumber() public {
-        (, bytes memory userData) = _generateSignatureAndUserData(bob, bobKey);
-
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        makeAngstromNode(bob);
 
         vm.prank(bob);
-        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, userData);
+        router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bobUserData);
         assertEq(
             angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
@@ -90,16 +72,14 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function testOnlyOncePerBlock() public {
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        makeAngstromNode(bob);
 
-        (bytes memory signature, ) = _generateSignatureAndUserData(bob, bobKey);
         vm.prank(bob);
-        angstromBalancer.unlockWithEmptyAttestation(bob, signature);
+        angstromBalancer.unlockWithEmptyAttestation(bob, bobSignature);
 
         vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
         vm.prank(bob);
-        angstromBalancer.unlockWithEmptyAttestation(bob, signature);
+        angstromBalancer.unlockWithEmptyAttestation(bob, bobSignature);
     }
 
     /***************************************************************************
@@ -125,18 +105,21 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function testOnBeforeAddLiquidityUnbalancedNotNode() public {
-        (, bytes memory userData) = _generateSignatureAndUserData(alice, aliceKey);
-
         vm.expectRevert(AngstromBalancer.NotNode.selector);
         vm.prank(alice);
-        router.addLiquidityUnbalanced(pool, [FixedPoint.ONE, FixedPoint.ONE].toMemoryArray(), 1e18, false, userData);
+        router.addLiquidityUnbalanced(
+            pool,
+            [FixedPoint.ONE, FixedPoint.ONE].toMemoryArray(),
+            1e18,
+            false,
+            aliceUserData
+        );
     }
 
     function testOnBeforeAddLiquidityUnbalancedInvalidSignature() public {
-        (, bytes memory userData) = _generateSignatureAndUserData(alice, bobKey);
+        (, bytes memory userData) = generateSignatureAndUserData(alice, bobKey);
 
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([alice].toMemoryArray());
+        makeAngstromNode(alice);
 
         vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(alice);
@@ -144,10 +127,7 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function testOnBeforeAddLiquidityUnbalancedSucceedsAndSetBlockNumber() public {
-        (, bytes memory userData) = _generateSignatureAndUserData(alice, aliceKey);
-
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([alice].toMemoryArray());
+        makeAngstromNode(alice);
 
         vm.prank(alice);
         uint256 expectedBptAmountOut = router.addLiquidityUnbalanced(
@@ -155,7 +135,7 @@ contract AngstromHookTest is BaseVaultTest {
             [FixedPoint.ONE, FixedPoint.ONE].toMemoryArray(),
             1e18,
             false,
-            userData
+            aliceUserData
         );
         assertEq(
             angstromBalancer.getLastUnlockBlockNumber(),
@@ -193,18 +173,15 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedNotNode() public {
-        (, bytes memory userData) = _generateSignatureAndUserData(lp, lpKey);
-
         vm.expectRevert(AngstromBalancer.NotNode.selector);
         vm.prank(lp);
-        router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, userData);
+        router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, lpUserData);
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedInvalidSignature() public {
-        (, bytes memory userData) = _generateSignatureAndUserData(lp, bobKey);
+        (, bytes memory userData) = generateSignatureAndUserData(lp, bobKey);
 
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([lp].toMemoryArray());
+        makeAngstromNode(lp);
 
         vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(lp);
@@ -212,15 +189,12 @@ contract AngstromHookTest is BaseVaultTest {
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedSucceedsAndSetBlockNumber() public {
-        (, bytes memory userData) = _generateSignatureAndUserData(lp, lpKey);
-
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([lp].toMemoryArray());
+        makeAngstromNode(lp);
 
         Balances memory balancesBefore = getBalances(lp);
 
         vm.prank(lp);
-        router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, userData);
+        router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, lpUserData);
 
         Balances memory balancesAfter = getBalances(lp);
 
@@ -230,15 +204,5 @@ contract AngstromHookTest is BaseVaultTest {
             "Last unlock block number is not the current block number"
         );
         assertEq(balancesAfter.lpBpt, balancesBefore.lpBpt - 1e18, "LP did not burn BPTs");
-    }
-
-    function _generateSignatureAndUserData(
-        address signer,
-        uint256 privateKey
-    ) private view returns (bytes memory signature, bytes memory userData) {
-        bytes32 hash = angstromBalancer.getDigest();
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
-        signature = abi.encodePacked(r, s, v);
-        userData = abi.encodePacked(signer, signature);
     }
 }
