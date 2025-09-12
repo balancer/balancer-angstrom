@@ -27,13 +27,16 @@ contract BaseAngstromTest is BaseVaultTest {
     function setUp() public virtual override {
         BaseVaultTest.setUp();
 
-        angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
-
-        authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
-
         (aliceSignature, aliceUserData) = generateSignatureAndUserData(alice, aliceKey);
         (bobSignature, bobUserData) = generateSignatureAndUserData(bob, bobKey);
         (lpSignature, lpUserData) = generateSignatureAndUserData(lp, lpKey);
+    }
+
+    function createHook() internal override returns (address) {
+        angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
+        authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
+
+        return address(angstromBalancer);
     }
 
     function makeAngstromNode(address account) internal {
