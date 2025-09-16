@@ -33,7 +33,7 @@ jobs:
       - name: Set up environment
         uses: ./.github/actions/setup
       - name: Test
-        run: yarn test:forge
+        run: yarn test:forge-with-hardhat
 
   test-hardhat:
     runs-on: ubuntu-latest

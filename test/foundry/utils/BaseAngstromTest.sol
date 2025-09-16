@@ -13,6 +13,8 @@ import { AngstromBalancer } from "../../../contracts/AngstromBalancer.sol";
 contract BaseAngstromTest is BaseVaultTest {
     using ArrayHelpers for *;
 
+    string private artifactsRootDir = "artifacts/";
+
     AngstromBalancerMock internal angstromBalancer;
 
     bytes internal aliceSignature;
@@ -33,7 +35,18 @@ contract BaseAngstromTest is BaseVaultTest {
     }
 
     function createHook() internal override returns (address) {
-        angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
+        if (reusingArtifacts) {
+            angstromBalancer = AngstromBalancerMock(
+                payable(
+                    deployCode(
+                        _computeAngstromBalancerTestPath(type(AngstromBalancerMock).name),
+                        abi.encode(vault, weth, permit2, "AngstromBalancer Mock v1")
+                    )
+                )
+            );
+        } else {
+            angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
+        }
         authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
 
         return address(angstromBalancer);
@@ -58,5 +71,9 @@ contract BaseAngstromTest is BaseVaultTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
         signature = abi.encodePacked(r, s, v);
         userData = abi.encodePacked(signer, signature);
+    }
+
+    function _computeAngstromBalancerTestPath(string memory name) private view returns (string memory) {
+        return string(abi.encodePacked(artifactsRootDir, "contracts/test/", name, ".sol/", name, ".json"));
     }
 }
