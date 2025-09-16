@@ -53,7 +53,7 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
  * and tracks the unlocked block in `_lastUnlockBlockNumber`.
  *
  * **Direct operations** (via this router): Only validators can call `swapExactIn`/`swapExactOut`, protected by
- * the `onlyValidatorNode` modifier.
+ * the `onlyValidatorNode` modifier. The router can only be called once per block.
  *
  * **Indirect operations** (via external routers): Anyone with a valid validator signature can execute swaps or
  * unbalanced liquidity operations by providing the signature in `userData` (for liquidity operations) or calldata
@@ -91,7 +91,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     error NotNode();
 
-    /// @notice A user attempted a swap without a signature.
+    /// @notice A user attempted a swap without a signature before this contract was unlocked.
     error CannotSwapWhileLocked();
 
     /**
