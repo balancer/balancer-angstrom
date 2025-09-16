@@ -19,16 +19,8 @@ contract AngstromBalancerMock is AngstromBalancer {
         // solhint-disable-previous-line no-empty-blocks
     }
 
-    function manualUnlockAngstromWithRouter() external {
-        _unlockAngstromWithRouter();
-    }
-
-    function getLastUnlockBlockNumber() external view returns (uint256) {
-        return _lastUnlockBlockNumber;
-    }
-
-    function isNode(address account) external view returns (bool) {
-        return _isNode(account);
+    function manualUnlockAngstrom() external {
+        _unlockAngstrom();
     }
 
     function getDigest() external view returns (bytes32) {
