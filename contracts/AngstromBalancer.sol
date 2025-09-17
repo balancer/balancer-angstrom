@@ -434,6 +434,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         return _lastUnlockBlockNumber == block.number;
     }
 
+    /// @dev This function fails if the signature is invalid or the node is not registered.
     function _unlockAngstromWithSignature(bytes memory userData) internal {
         // Queries are always allowed.
         if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
