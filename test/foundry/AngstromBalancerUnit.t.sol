@@ -16,6 +16,7 @@ contract AngstromBalancerUnitTest is BaseAngstromTest {
     using ArrayHelpers for *;
 
     function testToggleNodesIsAuthenticated() public {
+        vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
         angstromBalancer.toggleNodes([bob].toMemoryArray());
     }

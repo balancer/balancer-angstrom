@@ -84,7 +84,7 @@ contract BaseAngstromTest is BaseVaultTest {
         return string(abi.encodePacked(artifactsRootDir, "contracts/test/", name, ".sol/", name, ".json"));
     }
 
-    function _ensureEventTogglingNode(address account) internal view {
+    function _ensureEventTogglingNode(address account) internal {
         bool isNode = angstromBalancer.isRegisteredNode(account);
         vm.expectEmit();
         if (isNode) {

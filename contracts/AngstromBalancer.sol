@@ -15,7 +15,7 @@ import "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 
 import { EVMCallModeHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/EVMCallModeHelpers.sol";
-import { SingletonAuthentication } from "@balancer-labs/v3-vault/contracts/SingletonAuthentication.sol";
+import { OwnableAuthentication } from "@balancer-labs/v3-standalone-utils/contracts/OwnableAuthentication.sol";
 import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterHooks.sol";
 import { RouterCommon } from "@balancer-labs/v3-vault/contracts/RouterCommon.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
@@ -64,7 +64,7 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
  *
  * See [this diagram](https://drive.google.com/file/d/1A4kNi0ocI_V8tWcy3ruGNf-AaoP04bmR/view?usp=sharing).
  */
-contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentication, BaseHooks, EIP712 {
+contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthentication, BaseHooks, EIP712 {
     /// @dev `keccak256("AttestAngstromBlockEmpty(uint64 block_number)")`.
     uint256 internal constant _ATTEST_EMPTY_BLOCK_TYPE_HASH =
         0x3f25e551746414ff93f076a7dd83828ff53735b39366c74015637e004fcb0223;
@@ -129,7 +129,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
         IWETH weth,
         IPermit2 permit2,
         string memory routerVersion
-    ) BatchRouterHooks(vault, weth, permit2, routerVersion) SingletonAuthentication(vault) {
+    ) BatchRouterHooks(vault, weth, permit2, routerVersion) OwnableAuthentication(vault, msg.sender) {
         // solhint-disable-previous-line no-empty-blocks
     }
 
@@ -403,18 +403,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
     /***************************************************************************
                                      Getters
     ***************************************************************************/
-
-    /**
-     * @notice Get the Vault contract.
-     * @dev This function is needed since RouterCommon and SingletonAuthentication implementations of getVault()
-     * collide.
-     *
-     * @return vault The address of the Vault contract
-     */
-    function getVault() public view override(RouterCommon, SingletonAuthentication) returns (IVault vault) {
-        return _vault;
-    }
-
     /**
      * @notice Get the block number the last time this contract was locked.
      * @dev If it is equal to the current block number, the contract is unlocked.
