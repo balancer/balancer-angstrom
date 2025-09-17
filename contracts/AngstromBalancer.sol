@@ -107,6 +107,12 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     error InvalidSignature();
 
+    /// @notice A node was registered and is allowed to unlock Angstrom pools.
+    event NodeRegistered(address indexed node);
+
+    /// @notice A node was unregistered and is no longer able to unlock Angstrom pools.
+    event NodeUnregistered(address indexed node);
+
     modifier onlyValidatorNode() {
         // Only Validators can call direct swaps on this router.
         _ensureRegisteredNode(msg.sender);
@@ -384,7 +390,13 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, SingletonAuthentica
      */
     function toggleNodes(address[] memory nodes) external authenticate {
         for (uint256 i = 0; i < nodes.length; i++) {
-            _angstromValidatorNodes[nodes[i]] = !_angstromValidatorNodes[nodes[i]];
+            address node = nodes[i];
+            _angstromValidatorNodes[node] = !_angstromValidatorNodes[node];
+            if (_angstromValidatorNodes[node]) {
+                emit NodeRegistered(node);
+            } else {
+                emit NodeUnregistered(node);
+            }
         }
     }
 
