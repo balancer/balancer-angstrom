@@ -463,21 +463,19 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     // This function separates the two so that the node signature can be verified.
     function _splitUserData(
         bytes memory userData
-    ) internal pure returns (address extractedAddress, bytes memory remainingData) {
+    ) internal pure returns (address extractedAddress, bytes memory hashedMessage) {
         uint256 signatureLength = userData.length - 20;
+        // Initializes the hashed message to the correct length.
+        hashedMessage = new bytes(signatureLength);
 
-        // Extract first 20 bytes as address.
+        // Extract first 20 bytes as address and the rest as the hashed message.
         // solhint-disable-next-line no-inline-assembly
         assembly {
-            // `add(userData, 32)` is a pointer to the start of the data.
+            // `add(userData, 32)` is a pointer to the start of the data (the first 32 bytes are the length).
             // `shr(96, mload(...))` right-shifts 12 bytes (96 bits) to fit into 20 bytes.
             extractedAddress := shr(96, mload(add(userData, 32)))
-        }
-
-        // Copy the remaining 65 bytes into a new bytes array
-        remainingData = new bytes(signatureLength);
-        for (uint256 i = 0; i < signatureLength; i++) {
-            remainingData[i] = userData[i + 20];
+            // The remaining bytes are the hashed message. 52 is 32 + 20 (length + address length).
+            mcopy(add(hashedMessage, 32), add(userData, 52), signatureLength)
         }
     }
 
