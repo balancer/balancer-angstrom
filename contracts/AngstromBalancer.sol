@@ -98,6 +98,18 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
      */
     error InvalidSignature();
 
+    /**
+     * @notice The node was already registered.
+     * @dev The node was already registered as an Angstrom node
+     */
+    error NodeAlreadyRegistered();
+
+    /**
+     * @notice The node was not registered.
+     * @dev The node was not registered as an Angstrom node
+     */
+    error NodeNotRegistered();
+
     /// @notice A node was registered and is allowed to unlock Angstrom pools.
     event NodeRegistered(address indexed node);
 
@@ -380,6 +392,9 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
      * @param node The node to register
      */
     function addNode(address node) external authenticate {
+        if (_angstromValidatorNodes[node]) {
+            revert NodeAlreadyRegistered();
+        }
         _angstromValidatorNodes[node] = true;
         emit NodeRegistered(node);
     }
@@ -389,6 +404,9 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
      * @param node The node to unregister
      */
     function removeNode(address node) external authenticate {
+        if (_angstromValidatorNodes[node] == false) {
+            revert NodeNotRegistered();
+        }
         _angstromValidatorNodes[node] = false;
         emit NodeUnregistered(node);
     }

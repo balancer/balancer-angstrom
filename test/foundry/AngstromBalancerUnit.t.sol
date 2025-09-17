@@ -27,6 +27,19 @@ contract AngstromBalancerUnitTest is BaseAngstromTest {
         angstromBalancer.removeNode(bob);
     }
 
+    function testAddNodeAlreadyRegistered() public {
+        addAngstromNode(bob);
+        vm.prank(admin);
+        vm.expectRevert(AngstromBalancer.NodeAlreadyRegistered.selector);
+        angstromBalancer.addNode(bob);
+    }
+
+    function testRemoveNodeNotRegistered() public {
+        vm.prank(admin);
+        vm.expectRevert(AngstromBalancer.NodeNotRegistered.selector);
+        angstromBalancer.removeNode(bob);
+    }
+
     function testAddAndRemoveNodes() public {
         addAngstromNode(bob);
         addAngstromNode(alice);
