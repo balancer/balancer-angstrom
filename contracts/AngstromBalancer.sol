@@ -91,15 +91,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
      */
     error NotNode();
 
-    /// @notice A user attempted a swap without a signature before this contract was unlocked.
-    error CannotSwapWhileLocked();
-
-    /**
-     * @notice The userData with node address and signature is too short.
-     * @dev The unlock data must be at least 20 bytes (address length) + 64/65 bytes (signature length).
-     */
-    error UnlockDataTooShort();
-
     /**
      * @notice The signature provided on a swap or liquidity operation was invalid.
      * @dev The user provided a signature of the correct length, and the node address is registered, but the hashed
@@ -308,7 +299,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         // If Angstrom is already unlocked, allow the swap.
         if (_isAngstromUnlocked() == false) {
             if (params.userData.length < 20) {
-                _processInvalidUserData(params.userData);
+                revert InvalidSignature();
             } else {
                 address node = address(bytes20(params.userData[:20]));
                 bytes calldata signature = params.userData[20:];
@@ -439,7 +430,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         // Queries are always allowed.
         if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
             if (userData.length < 20) {
-                _processInvalidUserData(userData);
+                revert InvalidSignature();
             } else {
                 (address node, bytes memory signature) = _splitUserData(userData);
                 // The signature looks well-formed. Revert if it doesn't correspond to a registered node.
@@ -477,16 +468,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             // The remaining bytes are the hashed message. 52 is 32 + 20 (length + address length).
             mcopy(add(hashedMessage, 32), add(userData, 52), signatureLength)
         }
-    }
-
-    function _processInvalidUserData(bytes memory userData) internal pure {
-        if (userData.length == 0) {
-            // No signature was provided.
-            revert CannotSwapWhileLocked();
-        }
-
-        // The provided signature is not long enough to be valid.
-        revert UnlockDataTooShort();
     }
 
     // Signature passed in calldata (swaps).

@@ -35,14 +35,14 @@ contract AngstromHookTest is BaseAngstromTest {
     function testOnBeforeSwapCannotSwapWhileLocked() public {
         // If no userData was provided (therefore, no signature), the hook treats as if the user expected the pools to
         // be unlocked.
-        vm.expectRevert(AngstromBalancer.CannotSwapWhileLocked.selector);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bytes(""));
     }
 
     function testOnBeforeSwapUnlockDataTooShort() public {
         // If the userData is too short, there's not enough data to represent the ECDSA signature.
-        vm.expectRevert(AngstromBalancer.UnlockDataTooShort.selector);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bytes("1"));
     }
@@ -93,13 +93,13 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeAddLiquidityUnbalancedNoSignature() public {
-        vm.expectRevert(AngstromBalancer.CannotSwapWhileLocked.selector);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(alice);
         router.addLiquidityUnbalanced(pool, [FixedPoint.ONE, FixedPoint.ONE].toMemoryArray(), 1e18, false, bytes(""));
     }
 
     function testOnBeforeAddLiquidityUnbalancedUnlockDataTooShort() public {
-        vm.expectRevert(AngstromBalancer.UnlockDataTooShort.selector);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(alice);
         router.addLiquidityUnbalanced(pool, [FixedPoint.ONE, FixedPoint.ONE].toMemoryArray(), 1e18, false, bytes("1"));
     }
@@ -161,13 +161,13 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedNoSignature() public {
-        vm.expectRevert(AngstromBalancer.CannotSwapWhileLocked.selector);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(lp);
         router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, bytes(""));
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedUnlockDataTooShort() public {
-        vm.expectRevert(AngstromBalancer.UnlockDataTooShort.selector);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(lp);
         router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, bytes("1"));
     }
