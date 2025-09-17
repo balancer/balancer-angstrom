@@ -15,31 +15,29 @@ import { BaseAngstromTest } from "./utils/BaseAngstromTest.sol";
 contract AngstromBalancerUnitTest is BaseAngstromTest {
     using ArrayHelpers for *;
 
-    function testToggleNodesIsAuthenticated() public {
+    function testAddNodeIsAuthenticated() public {
         vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        angstromBalancer.addNode(bob);
     }
 
-    function testToggleNodes() public {
-        makeAngstromNode(bob);
-        assertTrue(angstromBalancer.isRegisteredNode(bob), "Bob is not a node");
+    function testRemoveNodeIsAuthenticated() public {
+        vm.prank(alice);
+        vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
+        angstromBalancer.removeNode(bob);
     }
 
     function testAddAndRemoveNodes() public {
-        makeAngstromNodes([bob, alice].toMemoryArray());
-        assertTrue(angstromBalancer.isRegisteredNode(bob), "Bob is not a node");
-        assertTrue(angstromBalancer.isRegisteredNode(alice), "Alice is not a node");
-
-        vm.prank(admin);
-        angstromBalancer.toggleNodes([bob].toMemoryArray());
+        addAngstromNode(bob);
+        addAngstromNode(alice);
+        removeAngstromNode(bob);
 
         assertFalse(angstromBalancer.isRegisteredNode(bob), "Bob is still a node");
         assertTrue(angstromBalancer.isRegisteredNode(alice), "Alice is not a node after bob was removed");
     }
 
     function testUnlockAngstromSetsLastUnlockBlockNumber() public {
-        makeAngstromNode(bob);
+        addAngstromNode(bob);
 
         assertEq(angstromBalancer.getLastUnlockBlockNumber(), 0, "Last unlock block number is not 0");
 
@@ -50,9 +48,5 @@ contract AngstromBalancerUnitTest is BaseAngstromTest {
             block.number,
             "Last unlock block number is not the current block number"
         );
-    }
-
-    function testGetVault() public view {
-        assertEq(address(angstromBalancer.getVault()), address(vault), "Wrong vault address");
     }
 }

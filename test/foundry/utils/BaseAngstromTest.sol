@@ -35,6 +35,7 @@ contract BaseAngstromTest is BaseVaultTest {
     }
 
     function createHook() internal override returns (address) {
+        vm.startPrank(admin);
         if (reusingArtifacts) {
             angstromBalancer = AngstromBalancerMock(
                 payable(
@@ -47,27 +48,27 @@ contract BaseAngstromTest is BaseVaultTest {
         } else {
             angstromBalancer = new AngstromBalancerMock(vault, weth, permit2, "AngstromBalancer Mock v1");
         }
-        authorizer.grantRole(angstromBalancer.getActionId(AngstromBalancer.toggleNodes.selector), admin);
+        vm.stopPrank();
 
         return address(angstromBalancer);
     }
 
-    function makeAngstromNode(address account) internal {
-        _ensureEventTogglingNode(account);
+    function addAngstromNode(address account) internal {
+        vm.expectEmit();
+        emit AngstromBalancer.NodeRegistered(account);
 
         vm.prank(admin);
-        angstromBalancer.toggleNodes([account].toMemoryArray());
+        angstromBalancer.addNode(account);
         assertTrue(angstromBalancer.isRegisteredNode(account), "Node registration failed");
     }
 
-    function makeAngstromNodes(address[] memory accounts) internal {
-        for (uint256 i = 0; i < accounts.length; i++) {
-            address account = accounts[i];
-            _ensureEventTogglingNode(account);
-        }
+    function removeAngstromNode(address account) internal {
+        vm.expectEmit();
+        emit AngstromBalancer.NodeUnregistered(account);
 
         vm.prank(admin);
-        angstromBalancer.toggleNodes(accounts);
+        angstromBalancer.removeNode(account);
+        assertFalse(angstromBalancer.isRegisteredNode(account), "Node registration failed");
     }
 
     function generateSignatureAndUserData(

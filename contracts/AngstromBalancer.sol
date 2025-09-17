@@ -376,19 +376,21 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     ***************************************************************************/
 
     /**
-     * @notice Register/unregister nodes that are allowed to unlock the system.
-     * @param nodes The nodes to toggle (register/unregister)
+     * @notice Register a node that is allowed to unlock the system.
+     * @param node The node to register
      */
-    function toggleNodes(address[] memory nodes) external authenticate {
-        for (uint256 i = 0; i < nodes.length; i++) {
-            address node = nodes[i];
-            _angstromValidatorNodes[node] = !_angstromValidatorNodes[node];
-            if (_angstromValidatorNodes[node]) {
-                emit NodeRegistered(node);
-            } else {
-                emit NodeUnregistered(node);
-            }
-        }
+    function addNode(address node) external authenticate {
+        _angstromValidatorNodes[node] = true;
+        emit NodeRegistered(node);
+    }
+
+    /**
+     * @notice Unregister a node that is no longer allowed to unlock the system.
+     * @param node The node to unregister
+     */
+    function removeNode(address node) external authenticate {
+        _angstromValidatorNodes[node] = false;
+        emit NodeUnregistered(node);
     }
 
     /***************************************************************************
