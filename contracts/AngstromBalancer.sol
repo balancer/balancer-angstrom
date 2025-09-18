@@ -113,8 +113,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     /// @notice A node was registered and is allowed to unlock Angstrom pools.
     event NodeRegistered(address indexed node);
 
-    /// @notice A node was unregistered and is no longer able to unlock Angstrom pools.
-    event NodeUnregistered(address indexed node);
+    /// @notice A node was deregistered and is no longer able to unlock Angstrom pools.
+    event NodeDeregistered(address indexed node);
 
     modifier onlyValidatorNode() {
         // Only Validators can call direct swaps on this router.

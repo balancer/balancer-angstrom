@@ -11,18 +11,18 @@ The Angstrom Router is a combination of a batch router and hook that provides co
 ### 🔐 Node-Based Access Control
 
 - Only registered Angstrom nodes can perform the first swap and/or liquidity transaction (before network unlock)
-- Node registration is managed through authenticated `toggleNodes()` function
+- Node registration is managed through permissioned `registerNode` and `deregisterNode` functions
 - Prevents unauthorized access to locked pools
 
 ### 🔓 Block-Level Unlocking
 
-- Network can only be unlocked once per block
+- The network can only be unlocked once per block
 - Unlocking is global - once unlocked, all pools accept operations from any router
 
 ### 🔄 Dual Operation Modes
 
 - **Router Mode**: Direct swaps against pools, as a registered node (no signature required)
-- **Hook Mode**: Operations through any router with cryptographic signature verification (node register is still required)
+- **Hook Mode**: Operations through any router with cryptographic signature verification (node registration is still required)
 
 ### 📊 Comprehensive Swap Support
 
@@ -45,7 +45,7 @@ The Angstrom Router is a combination of a batch router and hook that provides co
 
 ## Installation
 
-If it's the first time running the project, run `sh ./scripts/install-fresh.sh` to install the dependencies and build the project. It'll download and compile V3 monorepo, creating node_modules folders in the library (these folders will be needed to use monorepo as a submodule of the angstrom project).
+If it's the first time running the project, run `sh ./scripts/install-fresh.sh` to install the dependencies and build the project. It will download and compile the V3 monorepo, creating node_modules folders in the library. (These folders will be needed to use the monorepo as a submodule of the angstrom project.)
 
 ## Testing
 

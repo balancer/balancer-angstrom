@@ -6,15 +6,10 @@ import "forge-std/Test.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
 
-import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
-
-import { AngstromBalancerMock } from "../../contracts/test/AngstromBalancerMock.sol";
 import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
 import { BaseAngstromTest } from "./utils/BaseAngstromTest.sol";
 
 contract AngstromBalancerUnitTest is BaseAngstromTest {
-    using ArrayHelpers for *;
-
     function testAddNodeIsAuthenticated() public {
         vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);

@@ -4,15 +4,12 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
-import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
 import { AngstromBalancerMock } from "../../../contracts/test/AngstromBalancerMock.sol";
 import { AngstromBalancer } from "../../../contracts/AngstromBalancer.sol";
 
 contract BaseAngstromTest is BaseVaultTest {
-    using ArrayHelpers for *;
-
     string private artifactsRootDir = "artifacts/";
 
     AngstromBalancerMock internal angstromBalancer;

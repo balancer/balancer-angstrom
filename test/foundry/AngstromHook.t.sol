@@ -6,16 +6,9 @@ import "forge-std/Test.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
-import {
-    SwapPathExactAmountIn,
-    SwapPathExactAmountOut
-} from "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
-
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { AngstromBalancerMock } from "../../contracts/test/AngstromBalancerMock.sol";
 import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
 import { BaseAngstromTest } from "./utils/BaseAngstromTest.sol";
 
