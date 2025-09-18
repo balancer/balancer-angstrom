@@ -17,7 +17,6 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { EVMCallModeHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/EVMCallModeHelpers.sol";
 import { OwnableAuthentication } from "@balancer-labs/v3-standalone-utils/contracts/OwnableAuthentication.sol";
 import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterHooks.sol";
-import { RouterCommon } from "@balancer-labs/v3-vault/contracts/RouterCommon.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
 /**
@@ -380,7 +379,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
      * @notice Register a node that is allowed to unlock the system.
      * @param node The node to register
      */
-    function addNode(address node) external authenticate {
+    function registerNode(address node) external authenticate {
         if (_angstromValidatorNodes[node]) {
             revert NodeAlreadyRegistered();
         }
@@ -392,12 +391,12 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
      * @notice Unregister a node that is no longer allowed to unlock the system.
      * @param node The node to unregister
      */
-    function removeNode(address node) external authenticate {
+    function deregisterNode(address node) external authenticate {
         if (_angstromValidatorNodes[node] == false) {
             revert NodeNotRegistered();
         }
         _angstromValidatorNodes[node] = false;
-        emit NodeUnregistered(node);
+        emit NodeDeregistered(node);
     }
 
     /***************************************************************************

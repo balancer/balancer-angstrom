@@ -13,39 +13,40 @@ contract AngstromBalancerUnitTest is BaseAngstromTest {
     function testAddNodeIsAuthenticated() public {
         vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
-        angstromBalancer.addNode(bob);
+        angstromBalancer.registerNode(bob);
     }
 
     function testRemoveNodeIsAuthenticated() public {
         vm.prank(alice);
         vm.expectRevert(IAuthentication.SenderNotAllowed.selector);
-        angstromBalancer.removeNode(bob);
+        angstromBalancer.deregisterNode(bob);
     }
 
     function testAddNodeAlreadyRegistered() public {
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
         vm.prank(admin);
         vm.expectRevert(AngstromBalancer.NodeAlreadyRegistered.selector);
-        angstromBalancer.addNode(bob);
+        angstromBalancer.registerNode(bob);
     }
 
     function testRemoveNodeNotRegistered() public {
         vm.prank(admin);
         vm.expectRevert(AngstromBalancer.NodeNotRegistered.selector);
-        angstromBalancer.removeNode(bob);
+        angstromBalancer.deregisterNode(bob);
     }
 
     function testAddAndRemoveNodes() public {
-        addAngstromNode(bob);
-        addAngstromNode(alice);
-        removeAngstromNode(bob);
+        registerAngstromNode(bob);
+        registerAngstromNode(alice);
+        // Makes sure, when deregistering a node, the other nodes are not affected.
+        deregisterAngstromNode(bob);
 
         assertFalse(angstromBalancer.isRegisteredNode(bob), "Bob is still a node");
         assertTrue(angstromBalancer.isRegisteredNode(alice), "Alice is not a node after bob was removed");
     }
 
     function testUnlockAngstromSetsLastUnlockBlockNumber() public {
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         assertEq(angstromBalancer.getLastUnlockBlockNumber(), 0, "Last unlock block number is not 0");
 

@@ -50,21 +50,21 @@ contract BaseAngstromTest is BaseVaultTest {
         return address(angstromBalancer);
     }
 
-    function addAngstromNode(address account) internal {
+    function registerAngstromNode(address account) internal {
         vm.expectEmit();
         emit AngstromBalancer.NodeRegistered(account);
 
         vm.prank(admin);
-        angstromBalancer.addNode(account);
+        angstromBalancer.registerNode(account);
         assertTrue(angstromBalancer.isRegisteredNode(account), "Node registration failed");
     }
 
-    function removeAngstromNode(address account) internal {
+    function deregisterAngstromNode(address account) internal {
         vm.expectEmit();
-        emit AngstromBalancer.NodeUnregistered(account);
+        emit AngstromBalancer.NodeDeregistered(account);
 
         vm.prank(admin);
-        angstromBalancer.removeNode(account);
+        angstromBalancer.deregisterNode(account);
         assertFalse(angstromBalancer.isRegisteredNode(account), "Node registration failed");
     }
 
@@ -80,15 +80,5 @@ contract BaseAngstromTest is BaseVaultTest {
 
     function _computeAngstromBalancerTestPath(string memory name) private view returns (string memory) {
         return string(abi.encodePacked(artifactsRootDir, "contracts/test/", name, ".sol/", name, ".json"));
-    }
-
-    function _ensureEventTogglingNode(address account) internal {
-        bool isNode = angstromBalancer.isRegisteredNode(account);
-        vm.expectEmit();
-        if (isNode) {
-            emit AngstromBalancer.NodeUnregistered(account);
-        } else {
-            emit AngstromBalancer.NodeRegistered(account);
-        }
     }
 }

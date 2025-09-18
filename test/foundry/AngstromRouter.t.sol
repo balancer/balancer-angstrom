@@ -30,7 +30,7 @@ contract AngstromRouterTest is BaseAngstromTest {
     }
 
     function testSwapExactInAlreadyUnlocked() public {
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         SwapPathExactAmountIn[] memory paths;
 
@@ -42,7 +42,7 @@ contract AngstromRouterTest is BaseAngstromTest {
     }
 
     function testSwapExactInUnlocksAngstrom() public {
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         SwapPathExactAmountIn[] memory paths;
 
@@ -70,7 +70,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         ) = angstromBalancer.querySwapExactIn(paths, bob, bytes(""));
         vm.revertTo(snapId);
 
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         vm.prank(bob);
         (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut) = angstromBalancer
@@ -94,7 +94,7 @@ contract AngstromRouterTest is BaseAngstromTest {
     }
 
     function testSwapExactOutAlreadyUnlocked() public {
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         SwapPathExactAmountOut[] memory paths;
 
@@ -106,7 +106,7 @@ contract AngstromRouterTest is BaseAngstromTest {
     }
 
     function testSwapExactOutUnlocksRouter() public {
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         SwapPathExactAmountOut[] memory paths;
         vm.prank(bob);
@@ -138,7 +138,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         ) = angstromBalancer.querySwapExactOut(paths, bob, bytes(""));
         vm.revertTo(snapId);
 
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         vm.prank(bob);
         (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn) = angstromBalancer

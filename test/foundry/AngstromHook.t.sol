@@ -44,7 +44,7 @@ contract AngstromHookTest is BaseAngstromTest {
         // If the signature is invalid, the hook reverts (in this case, signer and key do not match).
         (, bytes memory userData) = generateSignatureAndUserData(bob, aliceKey);
 
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(bob);
@@ -52,7 +52,7 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeSwapSucceedsAndSetBlockNumber() public {
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bobUserData);
@@ -64,7 +64,7 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnlyOncePerBlock() public {
-        addAngstromNode(bob);
+        registerAngstromNode(bob);
 
         vm.prank(bob);
         angstromBalancer.unlockWithEmptyAttestation(bob, bobSignature);
@@ -111,7 +111,7 @@ contract AngstromHookTest is BaseAngstromTest {
     function testOnBeforeAddLiquidityUnbalancedInvalidSignature() public {
         (, bytes memory userData) = generateSignatureAndUserData(alice, bobKey);
 
-        addAngstromNode(alice);
+        registerAngstromNode(alice);
 
         vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(alice);
@@ -119,7 +119,7 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeAddLiquidityUnbalancedSucceedsAndSetBlockNumber() public {
-        addAngstromNode(alice);
+        registerAngstromNode(alice);
 
         vm.prank(alice);
         uint256 expectedBptAmountOut = router.addLiquidityUnbalanced(
@@ -173,7 +173,7 @@ contract AngstromHookTest is BaseAngstromTest {
     function testOnBeforeRemoveLiquidityUnbalancedInvalidSignature() public {
         (, bytes memory userData) = generateSignatureAndUserData(lp, bobKey);
 
-        addAngstromNode(lp);
+        registerAngstromNode(lp);
 
         vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         vm.prank(lp);
@@ -181,7 +181,7 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedSucceedsAndSetBlockNumber() public {
-        addAngstromNode(lp);
+        registerAngstromNode(lp);
 
         Balances memory balancesBefore = getBalances(lp);
 
