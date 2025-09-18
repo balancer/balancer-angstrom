@@ -303,24 +303,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     /// @inheritdoc IHooks
     function onBeforeSwap(PoolSwapParams calldata params, address) public override returns (bool) {
-        // Queries are always allowed.
-        if (EVMCallModeHelpers.isStaticCall()) {
-            return true;
-        }
-
-        // If Angstrom is already unlocked, allow the swap.
-        if (_isAngstromUnlocked() == false) {
-            if (params.userData.length < 20) {
-                revert InvalidSignature();
-            } else {
-                address node = address(bytes20(params.userData[:20]));
-                bytes calldata signature = params.userData[20:];
-                // The following function uses a signature in memory instead of calldata. Using it in calldata would
-                // be cheaper (~100 gas cheaper) in terms of gas, but would require code duplication. We opted to keep
-                // it simple.
-                _unlockWithEmptyAttestation(node, signature);
-            }
-        }
+        // If the system is locked and signature is not valid, or node is not registered, the hook will revert.
+        _unlockAngstromWithSignature(params.userData);
 
         return true;
     }
