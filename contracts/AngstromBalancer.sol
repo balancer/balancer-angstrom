@@ -315,6 +315,9 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             } else {
                 address node = address(bytes20(params.userData[:20]));
                 bytes calldata signature = params.userData[20:];
+                // The following function uses a signature in memory instead of calldata. Using it in calldata would
+                // be cheaper (~100 gas cheaper) in terms of gas, but would require code duplication. We opted to keep
+                // it simple.
                 _unlockWithEmptyAttestation(node, signature);
             }
         }
@@ -380,6 +383,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
      * @param signature The signature of the node unlocking the Angstrom network
      */
     function unlockWithEmptyAttestation(address node, bytes calldata signature) external onlyWhenLocked {
+        // The following function uses a signature in memory instead of calldata. Using it in calldata would be cheaper
+        // (~100 gas cheaper) in terms of gas, but would require code duplication. We opted to keep it simple.
         _unlockWithEmptyAttestation(node, signature);
     }
 
