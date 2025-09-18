@@ -454,7 +454,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             } else {
                 (address node, bytes memory signature) = _splitUserData(userData);
                 // The signature looks well-formed. Revert if it doesn't correspond to a registered node.
-                _unlockWithEmptyAttestationFromUserData(node, signature);
+                _unlockWithEmptyAttestation(node, signature);
             }
         }
     }
@@ -490,19 +490,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         }
     }
 
-    // Signature passed in calldata (swaps).
-    function _unlockWithEmptyAttestation(address node, bytes calldata signature) internal {
-        bytes32 digest = _ensureRegisteredNodeAndReturnDigest(node);
-
-        if (SignatureCheckerLib.isValidSignatureNowCalldata(node, digest, signature) == false) {
-            revert InvalidSignature();
-        }
-
-        _unlockAngstrom();
-    }
-
     // Signature passed in memory (from userData).
-    function _unlockWithEmptyAttestationFromUserData(address node, bytes memory signature) internal {
+    function _unlockWithEmptyAttestation(address node, bytes memory signature) internal {
         bytes32 digest = _ensureRegisteredNodeAndReturnDigest(node);
 
         if (SignatureCheckerLib.isValidSignatureNow(node, digest, signature) == false) {
