@@ -1,11 +1,11 @@
 {
-  "name": "@balancer-labs/v3-custom-pool",
-  "description": "Balancer V3 Custom Pool",
+  "name": "@balancer-labs/v3-balancer-angstrom",
+  "description": "Balancer V3 Angstrom Router and Hook",
   "license": "GPL-3.0-only",
-  "homepage": "https://github.com/balancer-labs/custom-pool-v3#readme",
-  "repository": "git@github.com:balancer-labs/custom-pool-v3.git",
+  "homepage": "https://github.com/balancer-labs/balancer-angstrom#readme",
+  "repository": "git@github.com:balancer-labs/balancer-angstrom.git",
   "bugs": {
-    "url": "https://github.com/balancer-labs/custom-pool-v3/issues"
+    "url": "https://github.com/balancer-labs/balancer-angstrom/issues"
   },
   "engines": {
     "node": ">=18 <18.21"
@@ -24,9 +24,10 @@
     "lint:solidity": "npx prettier --check --plugin=prettier-plugin-solidity 'contracts/**/*.sol' ''test/**/*.sol'' && npx solhint 'contracts/**/*.sol'",
     "lint:typescript": "NODE_NO_WARNINGS=1 eslint  --ext .ts --ignore-path ./.eslintignore  --max-warnings 0",
     "prettier": "npx prettier --write --plugin=prettier-plugin-solidity 'contracts/**/*.sol' 'test/**/*.sol'",
-    "test": "yarn test:hardhat && yarn test:forge",
+    "test": "yarn test:forge",
     "test:hardhat": "hardhat test",
-    "test:forge": "yarn build && REUSING_HARDHAT_ARTIFACTS=true forge test --ffi -vvv",
+    "test:forge": "forge test --ffi -vvv",
+    "test:forge-with-hardhat": "yarn build && REUSING_HARDHAT_ARTIFACTS=true forge test --ffi -vvv",
     "coverage": "./coverage.sh forge",
     "coverage:hardhat": "./coverage.sh hardhat",
     "coverage:all": "./coverage.sh all"
@@ -35,7 +36,8 @@
   "dependencies": {
     "@balancer-labs/v3-interfaces": "workspace:*",
     "@balancer-labs/v3-vault": "workspace:*",
-    "hardhat": "^2.14.0"
+    "hardhat": "^2.14.0",
+    "solady": "^0.1.26"
   },
   "devDependencies": {
     "@ethersproject/abi": "^5.7.0",
