@@ -503,17 +503,9 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     function _computeDigestSwapExactIn(SwapPathExactAmountIn[] memory paths) internal view returns (bytes32) {
         // First, hash the paths array according to EIP-712.
         bytes32 pathsHash = _hashSwapExactInPathArray(paths);
+        bytes32 structHash = _computeStructHashWithBlockNumber(_SWAP_EXACT_IN_TYPE_HASH, pathsHash);
 
-        bytes32 swapExactInStructHash;
-        // solhint-disable-next-line no-inline-assembly
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(ptr, _SWAP_EXACT_IN_TYPE_HASH)
-            mstore(add(ptr, 0x20), pathsHash)
-            mstore(add(ptr, 0x40), number()) // current block number
-            swapExactInStructHash := keccak256(ptr, 0x60)
-        }
-        return _hashTypedData(swapExactInStructHash);
+        return _hashTypedData(structHash);
     }
 
     // Helper function to hash the SwapPathExactAmountIn array.
@@ -545,17 +537,23 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     function _computeDigestSwapExactOut(SwapPathExactAmountOut[] memory paths) internal view returns (bytes32) {
         // First, hash the paths array according to EIP-712.
         bytes32 pathsHash = _hashSwapExactOutPathArray(paths);
+        bytes32 structHash = _computeStructHashWithBlockNumber(_SWAP_EXACT_OUT_TYPE_HASH, pathsHash);
 
-        bytes32 swapExactOutStructHash;
+        return _hashTypedData(structHash);
+    }
+
+    function _computeStructHashWithBlockNumber(uint256 typeHash, bytes32 contentHash) internal view returns (bytes32) {
+        bytes32 structHash;
         // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, _SWAP_EXACT_OUT_TYPE_HASH)
-            mstore(add(ptr, 0x20), pathsHash)
-            mstore(add(ptr, 0x40), number()) // current block number
-            swapExactOutStructHash := keccak256(ptr, 0x60)
+            mstore(ptr, typeHash)
+            mstore(add(ptr, 0x20), contentHash)
+            mstore(add(ptr, 0x40), number())
+            structHash := keccak256(ptr, 0x60)
         }
-        return _hashTypedData(swapExactOutStructHash);
+
+        return structHash;
     }
 
     // Helper function to hash the SwapPathExactAmountOut array.
@@ -585,14 +583,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     }
 
     function _getDigest() internal view returns (bytes32) {
-        bytes32 attestationStructHash;
-        // solhint-disable-next-line no-inline-assembly
-        assembly ("memory-safe") {
-            mstore(0x00, _ATTEST_EMPTY_BLOCK_TYPE_HASH)
-            mstore(0x20, number()) // current block number
-            attestationStructHash := keccak256(0x00, 0x40)
-        }
-        return _hashTypedData(attestationStructHash);
+        bytes32 structHash = _computeStructHashWithBlockNumber(
+            _ATTEST_EMPTY_BLOCK_TYPE_HASH,
+            bytes32(0) // no content for empty attestation
+        );
+        return _hashTypedData(structHash);
     }
 
     // The first 20 bytes of the user data is the node address; the rest is the signature.
