@@ -493,7 +493,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             if (userData.length < _MINIMUM_USER_DATA_LENGTH) {
                 revert InvalidSignature();
             } else {
-                (address node, bytes memory signature) = _splitUserData(userData);
+                (address node, bytes memory signature) = _splitUserDataMemory(userData);
                 // The signature looks well-formed. Revert if it doesn't correspond to a registered node.
                 _unlockWithEmptyAttestation(node, signature);
             }
@@ -597,7 +597,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     // The first 20 bytes of the user data is the node address; the rest is the signature.
     // This function separates the two so that the node signature can be verified.
-    function _splitUserData(
+    function _splitUserDataMemory(
         bytes memory userData
     ) internal pure returns (address extractedAddress, bytes memory hashedMessage) {
         uint256 signatureLength = userData.length - 20;
@@ -613,6 +613,13 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             // The remaining bytes are the hashed message. 52 is 32 + 20 (length + address length).
             mcopy(add(hashedMessage, 32), add(userData, 52), signatureLength)
         }
+    }
+
+    function _splitUserData(
+        bytes calldata userData
+    ) internal pure returns (address extractedAddress, bytes calldata signature) {
+        extractedAddress = address(bytes20(userData[0:20]));
+        signature = userData[20:];
     }
 
     // Signature passed in memory (from userData).
