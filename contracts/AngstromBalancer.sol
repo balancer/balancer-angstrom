@@ -76,6 +76,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     uint256 internal constant _SWAP_EXACT_OUT_TYPE_HASH =
         0xb26cc9223a5f7a414a15401ce11a9ef78c5c9daf4bc40c11e20d3f53cb9d79a5;
 
+    uint256 internal constant _MINIMUM_USER_DATA_LENGTH = 20;
+
     /// @dev Set of active Angstrom validator nodes, authorized to unlock this contract for operations.
     mapping(address node => bool isActive) internal _angstromValidatorNodes;
 
@@ -190,7 +192,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
         // validate signature and sender.
-        if (params.userData.length < 20) {
+        if (params.userData.length < _MINIMUM_USER_DATA_LENGTH) {
             revert InvalidSignature();
         }
 
@@ -250,7 +252,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
         // validate signature and sender.
-        if (params.userData.length < 20) {
+        if (params.userData.length < _MINIMUM_USER_DATA_LENGTH) {
             revert InvalidSignature();
         }
 
@@ -497,7 +499,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     function _unlockAngstromWithSignature(bytes memory userData) internal {
         // Queries are always allowed.
         if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
-            if (userData.length < 20) {
+            if (userData.length < _MINIMUM_USER_DATA_LENGTH) {
                 revert InvalidSignature();
             } else {
                 (address node, bytes memory signature) = _splitUserData(userData);
