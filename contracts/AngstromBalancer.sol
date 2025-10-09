@@ -501,7 +501,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     }
 
     function _computeDigestSwapExactIn(SwapPathExactAmountIn[] memory paths) internal view returns (bytes32) {
-        // First, hash the paths array according to EIP-712
+        // First, hash the paths array according to EIP-712.
         bytes32 pathsHash = _hashSwapExactInPathArray(paths);
 
         bytes32 swapExactInStructHash;
@@ -516,7 +516,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         return _hashTypedData(swapExactInStructHash);
     }
 
-    // Helper function to hash the SwapPathExactAmountIn array
+    // Helper function to hash the SwapPathExactAmountIn array.
     function _hashSwapExactInPathArray(SwapPathExactAmountIn[] memory paths) internal pure returns (bytes32) {
         bytes32[] memory pathHashes = new bytes32[](paths.length);
 
@@ -529,7 +529,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     // Helper function to hash a single SwapPathExactAmountIn
     function _hashSwapExactInPath(SwapPathExactAmountIn memory path) internal pure returns (bytes32) {
-        // You'll need to define the type hash for SwapPathExactAmountIn
+        // We need to define a type hash for SwapPathExactAmountIn.
         // For now, using a simple encoding (adjust based on your EIP-712 schema)
         bytes32[] memory stepHashes = new bytes32[](path.steps.length);
 
@@ -543,7 +543,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     }
 
     function _computeDigestSwapExactOut(SwapPathExactAmountOut[] memory paths) internal view returns (bytes32) {
-        // First, hash the paths array according to EIP-712
+        // First, hash the paths array according to EIP-712.
         bytes32 pathsHash = _hashSwapExactOutPathArray(paths);
 
         bytes32 swapExactOutStructHash;
@@ -558,7 +558,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         return _hashTypedData(swapExactOutStructHash);
     }
 
-    // Helper function to hash the SwapPathExactAmountOut array
+    // Helper function to hash the SwapPathExactAmountOut array.
     function _hashSwapExactOutPathArray(SwapPathExactAmountOut[] memory paths) internal pure returns (bytes32) {
         bytes32[] memory pathHashes = new bytes32[](paths.length);
 
@@ -569,8 +569,10 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         return keccak256(abi.encodePacked(pathHashes));
     }
 
-    // Helper function to hash a single SwapPathExactAmountOut
+    // Helper function to hash a single SwapPathExactAmountOut.
     function _hashSwapExactOutPath(SwapPathExactAmountOut memory path) internal pure returns (bytes32) {
+        // We need to define a type hash for SwapPathExactAmountIn.
+        // For now, using a simple encoding (adjust based on your EIP-712 schema)
         bytes32[] memory stepHashes = new bytes32[](path.steps.length);
 
         for (uint256 i = 0; i < path.steps.length; i++) {
