@@ -4,6 +4,8 @@ pragma solidity ^0.8.24;
 
 import "forge-std/Test.sol";
 
+import "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
+
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
 import { AngstromBalancerMock } from "../../../contracts/test/AngstromBalancerMock.sol";
@@ -26,9 +28,9 @@ contract BaseAngstromTest is BaseVaultTest {
     function setUp() public virtual override {
         BaseVaultTest.setUp();
 
-        (aliceSignature, aliceUserData) = generateSignatureAndUserData(alice, aliceKey);
-        (bobSignature, bobUserData) = generateSignatureAndUserData(bob, bobKey);
-        (lpSignature, lpUserData) = generateSignatureAndUserData(lp, lpKey);
+        (aliceSignature, aliceUserData) = generateSignatureAndUserDataEmptyAttestation(alice, aliceKey);
+        (bobSignature, bobUserData) = generateSignatureAndUserDataEmptyAttestation(bob, bobKey);
+        (lpSignature, lpUserData) = generateSignatureAndUserDataEmptyAttestation(lp, lpKey);
     }
 
     function createHook() internal override returns (address) {
@@ -68,11 +70,33 @@ contract BaseAngstromTest is BaseVaultTest {
         assertFalse(angstromBalancer.isRegisteredNode(account), "Node registration failed");
     }
 
-    function generateSignatureAndUserData(
+    function generateSignatureAndUserDataEmptyAttestation(
         address signer,
         uint256 privateKey
     ) internal view returns (bytes memory signature, bytes memory userData) {
         bytes32 hash = angstromBalancer.getDigest();
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
+        signature = abi.encodePacked(r, s, v);
+        userData = abi.encodePacked(signer, signature);
+    }
+
+    function generateSignatureAndUserDataSwapExactIn(
+        address signer,
+        uint256 privateKey,
+        SwapPathExactAmountIn[] memory paths
+    ) internal view returns (bytes memory signature, bytes memory userData) {
+        bytes32 hash = angstromBalancer.computeDigestSwapExactIn(paths);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
+        signature = abi.encodePacked(r, s, v);
+        userData = abi.encodePacked(signer, signature);
+    }
+
+    function generateSignatureAndUserDataSwapExactOut(
+        address signer,
+        uint256 privateKey,
+        SwapPathExactAmountOut[] memory paths
+    ) internal view returns (bytes memory signature, bytes memory userData) {
+        bytes32 hash = angstromBalancer.computeDigestSwapExactOut(paths);
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
         signature = abi.encodePacked(r, s, v);
         userData = abi.encodePacked(signer, signature);

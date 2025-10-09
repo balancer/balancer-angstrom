@@ -6,6 +6,7 @@ import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
 
 import { IWETH } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/misc/IWETH.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
+import "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 
 import { AngstromBalancer } from "../AngstromBalancer.sol";
 
@@ -21,6 +22,14 @@ contract AngstromBalancerMock is AngstromBalancer {
 
     function manualUnlockAngstrom() external {
         _unlockAngstrom();
+    }
+
+    function computeDigestSwapExactIn(SwapPathExactAmountIn[] memory paths) external view returns (bytes32) {
+        return _computeDigestSwapExactIn(paths);
+    }
+
+    function computeDigestSwapExactOut(SwapPathExactAmountOut[] memory paths) external view returns (bytes32) {
+        return _computeDigestSwapExactOut(paths);
     }
 
     function getDigest() external view returns (bytes32) {

@@ -42,7 +42,7 @@ contract AngstromHookTest is BaseAngstromTest {
 
     function testOnBeforeSwapInvalidSignature() public {
         // If the signature is invalid, the hook reverts (in this case, signer and key do not match).
-        (, bytes memory userData) = generateSignatureAndUserData(bob, aliceKey);
+        (, bytes memory userData) = generateSignatureAndUserDataEmptyAttestation(bob, aliceKey);
 
         registerAngstromNode(bob);
 
@@ -109,7 +109,7 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeAddLiquidityUnbalancedInvalidSignature() public {
-        (, bytes memory userData) = generateSignatureAndUserData(alice, bobKey);
+        (, bytes memory userData) = generateSignatureAndUserDataEmptyAttestation(alice, bobKey);
 
         registerAngstromNode(alice);
 
@@ -171,7 +171,7 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedInvalidSignature() public {
-        (, bytes memory userData) = generateSignatureAndUserData(lp, bobKey);
+        (, bytes memory userData) = generateSignatureAndUserDataEmptyAttestation(lp, bobKey);
 
         registerAngstromNode(lp);
 
