@@ -136,6 +136,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         _;
     }
 
+    modifier withValidUserData(bytes calldata userData) {
+        _ensureUserData(userData);
+        _;
+    }
+
     constructor(
         IVault vault,
         IWETH weth,
@@ -169,7 +174,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             abi.decode(
                 _vault.unlock(
                     abi.encodeCall(
-                        AngstromBalancer.swapExactInHookAngstrom,
+                        AngstromBalancer.swapExactInAngstromHook,
                         SwapExactInHookParams({
                             sender: msg.sender,
                             paths: paths,
@@ -183,26 +188,19 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             );
     }
 
-    function swapExactInHookAngstrom(
+    function swapExactInAngstromHook(
         SwapExactInHookParams calldata params
     )
         external
         nonReentrant
         onlyVault
+        withValidUserData(params.userData)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
-        // validate signature and sender.
-        if (params.userData.length < _MINIMUM_USER_DATA_LENGTH) {
-            revert InvalidSignature();
-        }
-
-        (address payer, bytes memory signature) = _splitUserData(params.userData);
-        // The signature looks well-formed.
         bytes32 digest = _computeDigestSwapExactIn(params.paths);
 
-        if (SignatureCheckerLib.isValidSignatureNow(payer, digest, signature) == false) {
-            revert InvalidSignature();
-        }
+        // This reverts if the signature is invalid.
+        address payer = _extractPayerWithValidSignature(digest, params.userData);
 
         (pathAmountsOut, tokensOut, amountsOut) = _swapExactInHook(params);
 
@@ -229,7 +227,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             abi.decode(
                 _vault.unlock(
                     abi.encodeCall(
-                        AngstromBalancer.swapExactOutHookAngstrom,
+                        AngstromBalancer.swapExactOutAngstromHook,
                         SwapExactOutHookParams({
                             sender: msg.sender,
                             paths: paths,
@@ -243,26 +241,19 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             );
     }
 
-    function swapExactOutHookAngstrom(
+    function swapExactOutAngstromHook(
         SwapExactOutHookParams calldata params
     )
         external
         nonReentrant
         onlyVault
+        withValidUserData(params.userData)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
-        // validate signature and sender.
-        if (params.userData.length < _MINIMUM_USER_DATA_LENGTH) {
-            revert InvalidSignature();
-        }
-
-        (address payer, bytes memory signature) = _splitUserData(params.userData);
-        // The signature looks well-formed.
         bytes32 digest = _computeDigestSwapExactOut(params.paths);
 
-        if (SignatureCheckerLib.isValidSignatureNow(payer, digest, signature) == false) {
-            revert InvalidSignature();
-        }
+        // This reverts if the signature is invalid.
+        address payer = _extractPayerWithValidSignature(digest, params.userData);
 
         (pathAmountsIn, tokensIn, amountsIn) = _swapExactOutHook(params);
 
@@ -649,6 +640,25 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         // Only one manual unlock or direct swap is permitted per block.
         if (_isAngstromUnlocked()) {
             revert OnlyOncePerBlock();
+        }
+    }
+
+    function _ensureUserData(bytes calldata userData) internal pure {
+        // Basic length validation of the user data, before splitting and signature validation.
+        if (userData.length < _MINIMUM_USER_DATA_LENGTH) {
+            revert InvalidSignature();
+        }
+    }
+
+    function _extractPayerWithValidSignature(
+        bytes32 digest,
+        bytes calldata userData
+    ) internal view returns (address payer) {
+        bytes memory signature;
+        (payer, signature) = _splitUserData(userData);
+
+        if (SignatureCheckerLib.isValidSignatureNow(payer, digest, signature) == false) {
+            revert InvalidSignature();
         }
     }
 
