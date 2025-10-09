@@ -510,7 +510,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             let ptr := mload(0x40)
             mstore(ptr, _SWAP_EXACT_IN_TYPE_HASH)
             mstore(add(ptr, 0x20), pathsHash)
-            mstore(add(ptr, 0x40), number())
+            mstore(add(ptr, 0x40), number()) // current block number
             swapExactInStructHash := keccak256(ptr, 0x60)
         }
         return _hashTypedData(swapExactInStructHash);
@@ -552,7 +552,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             let ptr := mload(0x40)
             mstore(ptr, _SWAP_EXACT_OUT_TYPE_HASH)
             mstore(add(ptr, 0x20), pathsHash)
-            mstore(add(ptr, 0x40), number())
+            mstore(add(ptr, 0x40), number()) // current block number
             swapExactOutStructHash := keccak256(ptr, 0x60)
         }
         return _hashTypedData(swapExactOutStructHash);
@@ -587,7 +587,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             mstore(0x00, _ATTEST_EMPTY_BLOCK_TYPE_HASH)
-            mstore(0x20, number())
+            mstore(0x20, number()) // current block number
             attestationStructHash := keccak256(0x00, 0x40)
         }
         return _hashTypedData(attestationStructHash);
