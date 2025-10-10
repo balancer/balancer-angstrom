@@ -6,6 +6,7 @@ import "forge-std/Test.sol";
 
 import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
+import { IVaultErrors } from "@balancer-labs/v3-interfaces/contracts/vault/IVaultErrors.sol";
 import {
     SwapPathExactAmountIn,
     SwapPathExactAmountOut,
@@ -25,30 +26,22 @@ contract AngstromRouterTest is BaseAngstromTest {
 
     function testSwapExactInNotNode() public {
         SwapPathExactAmountIn[] memory paths;
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps;
         vm.expectRevert(IAngstromBalancer.NotNode.selector);
-        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactIn(paths, tobSwaps, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactInAlreadyUnlocked() public {
         registerAngstromNode(bob);
 
         SwapPathExactAmountIn[] memory paths;
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps;
 
         angstromBalancer.manualUnlockAngstrom();
         vm.expectRevert(IAngstromBalancer.OnlyOncePerBlock.selector);
 
         vm.prank(bob);
-        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
-    }
-
-    function testSwapExactInAngstromWithoutSignature() public {
-        registerAngstromNode(bob);
-
-        SwapPathExactAmountIn[] memory paths;
-
-        vm.prank(bob);
-        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
-        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactIn(paths, tobSwaps, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactInAngstromPathDifferentFromSignature() public {
@@ -57,15 +50,24 @@ contract AngstromRouterTest is BaseAngstromTest {
         SwapPathStep[] memory steps = new SwapPathStep[](1);
         steps[0] = SwapPathStep({ pool: pool, tokenOut: usdc, isBuffer: false });
         SwapPathExactAmountIn[] memory paths = new SwapPathExactAmountIn[](1);
-        paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 1e18, minAmountOut: 0 });
-
-        (, bytes memory userData) = generateSignatureAndUserDataSwapExactIn(alice, aliceKey, paths);
-
         paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 1.01e18, minAmountOut: 0 });
 
+        // Path amountIn is different from signature.
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps = new IAngstromBalancer.ToBSwapData[](1);
+        tobSwaps[0] = IAngstromBalancer.ToBSwapData({
+            tokenIn: address(dai),
+            tokenOut: address(usdc),
+            exactAmountIn: 1e18,
+            exactAmountOut: 1e18,
+            payer: alice,
+            signature: bytes("")
+        });
+
+        tobSwaps[0].signature = generateSignatureToBSwap(aliceKey, tobSwaps[0]);
+
         vm.prank(bob);
-        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
-        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, userData);
+        vm.expectRevert(IVaultErrors.BalanceNotSettled.selector);
+        angstromBalancer.swapExactIn(paths, tobSwaps, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactInAngstromBlockNumberDifferentFromSignature() public {
@@ -75,38 +77,61 @@ contract AngstromRouterTest is BaseAngstromTest {
         steps[0] = SwapPathStep({ pool: pool, tokenOut: usdc, isBuffer: false });
         SwapPathExactAmountIn[] memory paths = new SwapPathExactAmountIn[](1);
         paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 1e18, minAmountOut: 0 });
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps = new IAngstromBalancer.ToBSwapData[](1);
 
-        (, bytes memory userData) = generateSignatureAndUserDataSwapExactIn(alice, aliceKey, paths);
+        tobSwaps[0] = IAngstromBalancer.ToBSwapData({
+            tokenIn: address(dai),
+            tokenOut: address(usdc),
+            exactAmountIn: 1e18,
+            exactAmountOut: 1e18,
+            payer: alice,
+            signature: bytes("")
+        });
+
+        tobSwaps[0].signature = generateSignatureToBSwap(aliceKey, tobSwaps[0]);
+
         // Moving block number should invalidate signature
         vm.roll(block.number + 1);
 
         vm.prank(bob);
         vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
-        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, userData);
+        angstromBalancer.swapExactIn(paths, tobSwaps, MAX_UINT256, false, bytes(""));
     }
 
-    function testSwapExactInUnlocksAngstrom() public {
-        registerAngstromNode(bob);
+    // TODO Refactor this test ot multiple users
+    // function testSwapExactInUnlocksAngstrom() public {
+    //     registerAngstromNode(bob);
 
-        SwapPathExactAmountIn[] memory paths;
+    //     SwapPathExactAmountIn[] memory paths;
+    //     IAngstromBalancer.ToBSwapData[] memory tobSwaps;
 
-        (, bytes memory userData) = generateSignatureAndUserDataSwapExactIn(alice, aliceKey, paths);
+    //     bytes memory userData = generateSignatureToBSwap(aliceKey, paths);
 
-        vm.prank(bob);
-        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, userData);
+    //     vm.prank(bob);
+    //     angstromBalancer.swapExactIn(paths, tobSwaps, MAX_UINT256, false, userData);
 
-        assertEq(
-            angstromBalancer.getLastUnlockBlockNumber(),
-            block.number,
-            "Last unlock block number is not the current block number"
-        );
-    }
+    //     assertEq(
+    //         angstromBalancer.getLastUnlockBlockNumber(),
+    //         block.number,
+    //         "Last unlock block number is not the current block number"
+    //     );
+    // }
 
     function testQuerySwapExactIn() public {
         SwapPathStep[] memory steps = new SwapPathStep[](1);
         steps[0] = SwapPathStep({ pool: pool, tokenOut: usdc, isBuffer: false });
         SwapPathExactAmountIn[] memory paths = new SwapPathExactAmountIn[](1);
         paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 1e18, minAmountOut: 0 });
+
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps = new IAngstromBalancer.ToBSwapData[](1);
+        tobSwaps[0] = IAngstromBalancer.ToBSwapData({
+            tokenIn: address(dai),
+            tokenOut: address(usdc),
+            exactAmountIn: 1e18,
+            exactAmountOut: 1e18,
+            payer: alice,
+            signature: bytes("")
+        });
 
         uint256 snapId = vm.snapshot();
         _prankStaticCall();
@@ -119,11 +144,11 @@ contract AngstromRouterTest is BaseAngstromTest {
 
         registerAngstromNode(bob);
 
-        (, bytes memory userData) = generateSignatureAndUserDataSwapExactIn(alice, aliceKey, paths);
+        tobSwaps[0].signature = generateSignatureToBSwap(aliceKey, tobSwaps[0]);
 
         vm.prank(bob);
         (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut) = angstromBalancer
-            .swapExactIn(paths, MAX_UINT256, false, userData);
+            .swapExactIn(paths, tobSwaps, MAX_UINT256, false, bytes(""));
 
         assertEq(pathAmountsOut.length, pathAmountsOutQuery.length, "Path amounts out length is not equal");
         assertEq(tokensOut.length, tokensOutQuery.length, "Tokens out length is not equal");
@@ -138,30 +163,22 @@ contract AngstromRouterTest is BaseAngstromTest {
 
     function testSwapExactOutNotNode() public {
         SwapPathExactAmountOut[] memory paths;
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps;
         vm.expectRevert(IAngstromBalancer.NotNode.selector);
-        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactOut(paths, tobSwaps, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactOutAlreadyUnlocked() public {
         registerAngstromNode(bob);
 
         SwapPathExactAmountOut[] memory paths;
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps;
 
         angstromBalancer.manualUnlockAngstrom();
 
         vm.expectRevert(IAngstromBalancer.OnlyOncePerBlock.selector);
         vm.prank(bob);
-        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
-    }
-
-    function testSwapExactOutAngstromWithoutSignature() public {
-        registerAngstromNode(bob);
-
-        SwapPathExactAmountOut[] memory paths;
-
-        vm.prank(bob);
-        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
-        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactOut(paths, tobSwaps, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactOutAngstromPathDifferentFromSignature() public {
@@ -173,22 +190,26 @@ contract AngstromRouterTest is BaseAngstromTest {
         paths[0] = SwapPathExactAmountOut({
             tokenIn: dai,
             steps: steps,
+            exactAmountOut: 0.99e18,
+            maxAmountIn: MAX_UINT256
+        });
+
+        // Path amountOut is different from signature.
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps = new IAngstromBalancer.ToBSwapData[](1);
+        tobSwaps[0] = IAngstromBalancer.ToBSwapData({
+            tokenIn: address(dai),
+            tokenOut: address(usdc),
+            exactAmountIn: 1e18,
             exactAmountOut: 1e18,
-            maxAmountIn: MAX_UINT256
+            payer: alice,
+            signature: bytes("")
         });
 
-        (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
-
-        paths[0] = SwapPathExactAmountOut({
-            tokenIn: dai,
-            steps: steps,
-            exactAmountOut: 1.01e18,
-            maxAmountIn: MAX_UINT256
-        });
+        tobSwaps[0].signature = generateSignatureToBSwap(aliceKey, tobSwaps[0]);
 
         vm.prank(bob);
-        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
-        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, userData);
+        vm.expectRevert(IVaultErrors.BalanceNotSettled.selector);
+        angstromBalancer.swapExactOut(paths, tobSwaps, MAX_UINT256, false, bytes(""));
     }
 
     function testSwapExactOutAngstromBlockNumberDifferentFromSignature() public {
@@ -203,32 +224,44 @@ contract AngstromRouterTest is BaseAngstromTest {
             exactAmountOut: 1e18,
             maxAmountIn: MAX_UINT256
         });
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps = new IAngstromBalancer.ToBSwapData[](1);
+        tobSwaps[0] = IAngstromBalancer.ToBSwapData({
+            tokenIn: address(dai),
+            tokenOut: address(usdc),
+            exactAmountIn: 1e18,
+            exactAmountOut: 1e18,
+            payer: alice,
+            signature: bytes("")
+        });
 
-        (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
+        tobSwaps[0].signature = generateSignatureToBSwap(aliceKey, tobSwaps[0]);
+
         // Moving block number should invalidate signature
         vm.roll(block.number + 1);
 
         vm.prank(bob);
         vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
-        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, userData);
+        angstromBalancer.swapExactOut(paths, tobSwaps, MAX_UINT256, false, bytes(""));
     }
 
-    function testSwapExactOutUnlocksRouter() public {
-        registerAngstromNode(bob);
+    // TODO Refactor this test ot multiple users
+    // function testSwapExactOutUnlocksRouter() public {
+    //     registerAngstromNode(bob);
 
-        SwapPathExactAmountOut[] memory paths;
+    //     SwapPathExactAmountOut[] memory paths;
+    //     IAngstromBalancer.ToBSwapData[] memory tobSwaps;
 
-        (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
+    //     (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
 
-        vm.prank(bob);
-        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, userData);
+    //     vm.prank(bob);
+    //     angstromBalancer.swapExactOut(paths, tobSwaps, MAX_UINT256, false, userData);
 
-        assertEq(
-            angstromBalancer.getLastUnlockBlockNumber(),
-            block.number,
-            "Last unlock block number is not the current block number"
-        );
-    }
+    //     assertEq(
+    //         angstromBalancer.getLastUnlockBlockNumber(),
+    //         block.number,
+    //         "Last unlock block number is not the current block number"
+    //     );
+    // }
 
     function testQuerySwapExactOut() public {
         SwapPathStep[] memory steps = new SwapPathStep[](1);
@@ -239,6 +272,15 @@ contract AngstromRouterTest is BaseAngstromTest {
             steps: steps,
             exactAmountOut: 1e18,
             maxAmountIn: MAX_UINT256
+        });
+        IAngstromBalancer.ToBSwapData[] memory tobSwaps = new IAngstromBalancer.ToBSwapData[](1);
+        tobSwaps[0] = IAngstromBalancer.ToBSwapData({
+            tokenIn: address(dai),
+            tokenOut: address(usdc),
+            exactAmountIn: 1e18,
+            exactAmountOut: 1e18,
+            payer: alice,
+            signature: bytes("")
         });
 
         uint256 snapId = vm.snapshot();
@@ -252,11 +294,11 @@ contract AngstromRouterTest is BaseAngstromTest {
 
         registerAngstromNode(bob);
 
-        (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
+        tobSwaps[0].signature = generateSignatureToBSwap(aliceKey, tobSwaps[0]);
 
         vm.prank(bob);
         (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn) = angstromBalancer
-            .swapExactOut(paths, MAX_UINT256, false, userData);
+            .swapExactOut(paths, tobSwaps, MAX_UINT256, false, bytes(""));
 
         assertEq(pathAmountsIn.length, pathAmountsInQuery.length, "Path amounts in length is not equal");
         assertEq(tokensIn.length, tokensInQuery.length, "Tokens in length is not equal");

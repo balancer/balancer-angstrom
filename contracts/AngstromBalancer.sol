@@ -110,11 +110,6 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         _;
     }
 
-    modifier withValidUserData(bytes calldata userData) {
-        _ensureUserData(userData);
-        _;
-    }
-
     constructor(
         IVault vault,
         IWETH weth,
@@ -172,7 +167,6 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         external
         nonReentrant
         onlyVault
-        withValidUserData(params.userData)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
         for (uint256 i = 0; i < tobSwaps.length; i++) {
@@ -232,7 +226,6 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         external
         nonReentrant
         onlyVault
-        withValidUserData(params.userData)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
         for (uint256 i = 0; i < tobSwaps.length; i++) {
@@ -576,17 +569,18 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         return _hashTypedData(structHash);
     }
 
-    function _computeDigestToB(ToBSwapData calldata swapData) internal view returns (bytes32) {
+    function _computeDigestToB(ToBSwapData memory swapData) internal view returns (bytes32) {
         bytes32 structHash;
+
         // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, _TOB_SWAP_TYPE_HASH)
-            mstore(add(ptr, 0x20), calldataload(swapData)) // tokenIn
-            mstore(add(ptr, 0x40), calldataload(add(swapData, 0x20))) // tokenOut
-            mstore(add(ptr, 0x60), calldataload(add(swapData, 0x40))) // exactAmountIn
-            mstore(add(ptr, 0x80), calldataload(add(swapData, 0x60))) // exactAmountOut
-            mstore(add(ptr, 0xa0), calldataload(add(swapData, 0x80))) // payer
+            mstore(add(ptr, 0x20), mload(swapData)) // tokenIn
+            mstore(add(ptr, 0x40), mload(add(swapData, 0x20))) // tokenOut
+            mstore(add(ptr, 0x60), mload(add(swapData, 0x40))) // exactAmountIn
+            mstore(add(ptr, 0x80), mload(add(swapData, 0x60))) // exactAmountOut
+            mstore(add(ptr, 0xa0), mload(add(swapData, 0x80))) // payer
             mstore(add(ptr, 0xc0), number()) // block_number
             structHash := keccak256(ptr, 0xe0)
         }
@@ -648,13 +642,6 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         // Only one manual unlock or direct swap is permitted per block.
         if (_isAngstromUnlocked()) {
             revert OnlyOncePerBlock();
-        }
-    }
-
-    function _ensureUserData(bytes calldata userData) internal pure {
-        // Basic length validation of the user data, before splitting and signature validation.
-        if (userData.length < _MINIMUM_USER_DATA_LENGTH) {
-            revert InvalidSignature();
         }
     }
 

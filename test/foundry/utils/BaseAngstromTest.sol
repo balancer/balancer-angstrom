@@ -102,6 +102,15 @@ contract BaseAngstromTest is BaseVaultTest {
         userData = abi.encodePacked(signer, signature);
     }
 
+    function generateSignatureToBSwap(
+        uint256 privateKey,
+        IAngstromBalancer.ToBSwapData memory swap
+    ) internal view returns (bytes memory signature) {
+        bytes32 hash = angstromBalancer.computeDigestToB(swap);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
+        signature = abi.encodePacked(r, s, v);
+    }
+
     function _computeAngstromBalancerTestPath(string memory name) private view returns (string memory) {
         return string(abi.encodePacked(artifactsRootDir, "contracts/test/", name, ".sol/", name, ".json"));
     }
