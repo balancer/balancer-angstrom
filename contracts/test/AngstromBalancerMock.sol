@@ -36,7 +36,7 @@ contract AngstromBalancerMock is AngstromBalancer {
         return _computeDigestToB(swap);
     }
 
-    function getDigest() external view returns (bytes32) {
-        return _getDigest();
+    function computeDigestEmptyAttestation() external view returns (bytes32) {
+        return _computeDigestEmptyAttestation();
     }
 }

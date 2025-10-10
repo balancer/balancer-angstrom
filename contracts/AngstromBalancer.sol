@@ -561,7 +561,7 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         return keccak256(abi.encode(path.tokenIn, stepsHash, path.maxAmountIn, path.exactAmountOut));
     }
 
-    function _getDigest() internal view returns (bytes32) {
+    function _computeDigestEmptyAttestation() internal view returns (bytes32) {
         bytes32 structHash = _computeStructHashWithBlockNumber(
             _ATTEST_EMPTY_BLOCK_TYPE_HASH,
             bytes32(0) // no content for empty attestation
@@ -629,7 +629,7 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
     function _ensureRegisteredNodeAndReturnDigest(address account) internal view returns (bytes32) {
         _ensureRegisteredNode(account);
 
-        return _getDigest();
+        return _computeDigestEmptyAttestation();
     }
 
     function _ensureRegisteredNode(address account) internal view {

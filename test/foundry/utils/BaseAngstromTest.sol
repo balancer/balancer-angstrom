@@ -79,7 +79,7 @@ contract BaseAngstromTest is BaseVaultTest {
         address signer,
         uint256 privateKey
     ) internal view returns (bytes memory signature, bytes memory userData) {
-        bytes32 hash = angstromBalancer.getDigest();
+        bytes32 hash = angstromBalancer.computeDigestEmptyAttestation();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
         signature = abi.encodePacked(r, s, v);
         userData = abi.encodePacked(signer, signature);
