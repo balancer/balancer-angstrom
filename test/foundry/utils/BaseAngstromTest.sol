@@ -8,8 +8,8 @@ import "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
+import { IAngstromBalancer } from "../../../contracts/interfaces/IAngstromBalancer.sol";
 import { AngstromBalancerMock } from "../../../contracts/test/AngstromBalancerMock.sol";
-import { AngstromBalancer } from "../../../contracts/AngstromBalancer.sol";
 
 contract BaseAngstromTest is BaseVaultTest {
     string private artifactsRootDir = "artifacts/";
@@ -54,7 +54,7 @@ contract BaseAngstromTest is BaseVaultTest {
 
     function registerAngstromNode(address account) internal {
         vm.expectEmit();
-        emit AngstromBalancer.NodeRegistered(account);
+        emit IAngstromBalancer.NodeRegistered(account);
 
         vm.prank(admin);
         angstromBalancer.registerNode(account);
@@ -63,7 +63,7 @@ contract BaseAngstromTest is BaseVaultTest {
 
     function deregisterAngstromNode(address account) internal {
         vm.expectEmit();
-        emit AngstromBalancer.NodeDeregistered(account);
+        emit IAngstromBalancer.NodeDeregistered(account);
 
         vm.prank(admin);
         angstromBalancer.deregisterNode(account);

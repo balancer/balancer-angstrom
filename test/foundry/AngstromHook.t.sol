@@ -9,7 +9,7 @@ import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import { ArrayHelpers } from "@balancer-labs/v3-solidity-utils/contracts/test/ArrayHelpers.sol";
 import { FixedPoint } from "@balancer-labs/v3-solidity-utils/contracts/math/FixedPoint.sol";
 
-import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
+import { IAngstromBalancer } from "../../contracts/interfaces/IAngstromBalancer.sol";
 import { BaseAngstromTest } from "./utils/BaseAngstromTest.sol";
 
 contract AngstromHookTest is BaseAngstromTest {
@@ -20,7 +20,7 @@ contract AngstromHookTest is BaseAngstromTest {
     ***************************************************************************/
 
     function testOnBeforeSwapNotNode() public {
-        vm.expectRevert(AngstromBalancer.NotNode.selector);
+        vm.expectRevert(IAngstromBalancer.NotNode.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bobUserData);
     }
@@ -28,14 +28,14 @@ contract AngstromHookTest is BaseAngstromTest {
     function testOnBeforeSwapCannotSwapWhileLocked() public {
         // If no userData was provided (therefore, no signature), the hook treats as if the user expected the pools to
         // be unlocked.
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bytes(""));
     }
 
     function testOnBeforeSwapUnlockDataTooShort() public {
         // If the userData is too short, there's not enough data to represent the ECDSA signature.
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, bytes("1"));
     }
@@ -46,7 +46,7 @@ contract AngstromHookTest is BaseAngstromTest {
 
         registerAngstromNode(bob);
 
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(bob);
         router.swapSingleTokenExactIn(pool, dai, usdc, 1e18, 0, MAX_UINT256, false, userData);
     }
@@ -69,7 +69,7 @@ contract AngstromHookTest is BaseAngstromTest {
         vm.prank(bob);
         angstromBalancer.unlockWithEmptyAttestation(bob, bobSignature);
 
-        vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
+        vm.expectRevert(IAngstromBalancer.OnlyOncePerBlock.selector);
         vm.prank(bob);
         angstromBalancer.unlockWithEmptyAttestation(bob, bobSignature);
     }
@@ -85,19 +85,19 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeAddLiquidityUnbalancedNoSignature() public {
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(alice);
         router.addLiquidityUnbalanced(pool, [FixedPoint.ONE, FixedPoint.ONE].toMemoryArray(), 1e18, false, bytes(""));
     }
 
     function testOnBeforeAddLiquidityUnbalancedUnlockDataTooShort() public {
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(alice);
         router.addLiquidityUnbalanced(pool, [FixedPoint.ONE, FixedPoint.ONE].toMemoryArray(), 1e18, false, bytes("1"));
     }
 
     function testOnBeforeAddLiquidityUnbalancedNotNode() public {
-        vm.expectRevert(AngstromBalancer.NotNode.selector);
+        vm.expectRevert(IAngstromBalancer.NotNode.selector);
         vm.prank(alice);
         router.addLiquidityUnbalanced(
             pool,
@@ -113,7 +113,7 @@ contract AngstromHookTest is BaseAngstromTest {
 
         registerAngstromNode(alice);
 
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(alice);
         router.addLiquidityUnbalanced(pool, [FixedPoint.ONE, FixedPoint.ONE].toMemoryArray(), 1e18, false, userData);
     }
@@ -153,19 +153,19 @@ contract AngstromHookTest is BaseAngstromTest {
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedNoSignature() public {
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(lp);
         router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, bytes(""));
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedUnlockDataTooShort() public {
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(lp);
         router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, bytes("1"));
     }
 
     function testOnBeforeRemoveLiquidityUnbalancedNotNode() public {
-        vm.expectRevert(AngstromBalancer.NotNode.selector);
+        vm.expectRevert(IAngstromBalancer.NotNode.selector);
         vm.prank(lp);
         router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, lpUserData);
     }
@@ -175,7 +175,7 @@ contract AngstromHookTest is BaseAngstromTest {
 
         registerAngstromNode(lp);
 
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         vm.prank(lp);
         router.removeLiquiditySingleTokenExactIn(pool, 1e18, dai, 0.1e18, false, userData);
     }

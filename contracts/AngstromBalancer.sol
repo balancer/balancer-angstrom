@@ -19,6 +19,8 @@ import { OwnableAuthentication } from "@balancer-labs/v3-standalone-utils/contra
 import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterHooks.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
 
+import { IAngstromBalancer } from "./interfaces/IAngstromBalancer.sol";
+
 /**
  * @notice Angstrom Router and Hook, used to trade against Angstrom pools.
  * @dev This contract is a combination of a batch router and a hook, designed to work with pools traded primarily on
@@ -63,7 +65,7 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
  *
  * See [this diagram](https://drive.google.com/file/d/1A4kNi0ocI_V8tWcy3ruGNf-AaoP04bmR/view?usp=sharing).
  */
-contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthentication, BaseHooks, EIP712 {
+contract AngstromBalancer is IAngstromBalancer, IBatchRouter, BatchRouterHooks, OwnableAuthentication, BaseHooks, EIP712 {
     /// @dev `keccak256("AttestAngstromBlockEmpty(uint64 block_number)")`.
     uint256 internal constant _ATTEST_EMPTY_BLOCK_TYPE_HASH =
         0x3f25e551746414ff93f076a7dd83828ff53735b39366c74015637e004fcb0223;
@@ -81,47 +83,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     /// @dev The currently "unlocked" block. The contract is locked if the current block does not equal this number.
     uint256 internal _lastUnlockBlockNumber;
-
-    /**
-     * @notice This contract can only be unlocked once per block.
-     * @dev This should not happen, but could if an Angstrom validator manually unlocks the contract twice, or manually
-     * unlocks in the same block after the Angstrom bundle has been executed, or if there is more than one direct swap
-     * in the bundle.
-     */
-    error OnlyOncePerBlock();
-
-    /**
-     * @notice An account attempted to unlock this contract that was not a registered Angstrom validator.
-     * @dev The node must be registered as an Angstrom node to unlock the contract for operations, either directly or
-     * by executing a permissioned operation. This can also occur for a valid signature, if the node address is
-     * unregistered.
-     */
-    error NotNode();
-
-    /**
-     * @notice The signature provided on a swap or liquidity operation was invalid.
-     * @dev The user provided a signature of the correct length, and the node address is registered, but the hashed
-     * message is wrong.
-     */
-    error InvalidSignature();
-
-    /**
-     * @notice The node was already registered.
-     * @dev The node was already registered as an Angstrom node
-     */
-    error NodeAlreadyRegistered();
-
-    /**
-     * @notice The node was not registered.
-     * @dev The node was not registered as an Angstrom node
-     */
-    error NodeNotRegistered();
-
-    /// @notice A node was registered and is allowed to unlock Angstrom pools.
-    event NodeRegistered(address indexed node);
-
-    /// @notice A node was deregistered and is no longer able to unlock Angstrom pools.
-    event NodeDeregistered(address indexed node);
 
     modifier onlyValidatorNode() {
         // Only Validators can call direct swaps on this router.

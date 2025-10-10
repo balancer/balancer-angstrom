@@ -12,7 +12,7 @@ import {
     SwapPathStep
 } from "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 
-import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
+import { IAngstromBalancer } from "../../contracts/interfaces/IAngstromBalancer.sol";
 import { BaseAngstromTest } from "./utils/BaseAngstromTest.sol";
 
 contract AngstromRouterTest is BaseAngstromTest {
@@ -25,7 +25,7 @@ contract AngstromRouterTest is BaseAngstromTest {
 
     function testSwapExactInNotNode() public {
         SwapPathExactAmountIn[] memory paths;
-        vm.expectRevert(AngstromBalancer.NotNode.selector);
+        vm.expectRevert(IAngstromBalancer.NotNode.selector);
         angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
     }
 
@@ -35,7 +35,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         SwapPathExactAmountIn[] memory paths;
 
         angstromBalancer.manualUnlockAngstrom();
-        vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
+        vm.expectRevert(IAngstromBalancer.OnlyOncePerBlock.selector);
 
         vm.prank(bob);
         angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
@@ -47,7 +47,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         SwapPathExactAmountIn[] memory paths;
 
         vm.prank(bob);
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
     }
 
@@ -64,7 +64,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 1.01e18, minAmountOut: 0 });
 
         vm.prank(bob);
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         angstromBalancer.swapExactIn(paths, MAX_UINT256, false, userData);
     }
 
@@ -81,7 +81,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         vm.roll(block.number + 1);
 
         vm.prank(bob);
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         angstromBalancer.swapExactIn(paths, MAX_UINT256, false, userData);
     }
 
@@ -138,7 +138,7 @@ contract AngstromRouterTest is BaseAngstromTest {
 
     function testSwapExactOutNotNode() public {
         SwapPathExactAmountOut[] memory paths;
-        vm.expectRevert(AngstromBalancer.NotNode.selector);
+        vm.expectRevert(IAngstromBalancer.NotNode.selector);
         angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
     }
 
@@ -149,7 +149,7 @@ contract AngstromRouterTest is BaseAngstromTest {
 
         angstromBalancer.manualUnlockAngstrom();
 
-        vm.expectRevert(AngstromBalancer.OnlyOncePerBlock.selector);
+        vm.expectRevert(IAngstromBalancer.OnlyOncePerBlock.selector);
         vm.prank(bob);
         angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
     }
@@ -160,7 +160,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         SwapPathExactAmountOut[] memory paths;
 
         vm.prank(bob);
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
     }
 
@@ -187,7 +187,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         });
 
         vm.prank(bob);
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         angstromBalancer.swapExactOut(paths, MAX_UINT256, false, userData);
     }
 
@@ -209,7 +209,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         vm.roll(block.number + 1);
 
         vm.prank(bob);
-        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        vm.expectRevert(IAngstromBalancer.InvalidSignature.selector);
         angstromBalancer.swapExactOut(paths, MAX_UINT256, false, userData);
     }
 
