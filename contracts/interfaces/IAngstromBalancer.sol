@@ -8,6 +8,23 @@ pragma solidity ^0.8.24;
  */
 interface IAngstromBalancer {
     /***************************************************************************
+                                       Structs
+    ***************************************************************************/
+
+    /**
+     * @notice Data for ToB (Top of Block) swaps.
+     * @dev This struct contains the information needed to execute swaps on ToB.
+     */
+    struct ToBSwapData {
+        address tokenIn;
+        address tokenOut;
+        uint256 exactAmountIn;
+        uint256 exactAmountOut;
+        address payer;
+        bytes signature;
+    }
+
+    /***************************************************************************
                                        Errors
     ***************************************************************************/
 
@@ -97,4 +114,3 @@ interface IAngstromBalancer {
      */
     function isRegisteredNode(address account) external view returns (bool);
 }
-
