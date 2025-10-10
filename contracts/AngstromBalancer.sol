@@ -76,6 +76,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     uint256 internal constant _SWAP_EXACT_OUT_TYPE_HASH =
         0xb26cc9223a5f7a414a15401ce11a9ef78c5c9daf4bc40c11e20d3f53cb9d79a5;
 
+    uint256 internal constant _MINIMUM_USER_DATA_LENGTH = 20;
+
     /// @dev Set of active Angstrom validator nodes, authorized to unlock this contract for operations.
     mapping(address node => bool isActive) internal _angstromValidatorNodes;
 
@@ -134,6 +136,11 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         _;
     }
 
+    modifier withValidUserData(bytes calldata userData) {
+        _ensureUserData(userData);
+        _;
+    }
+
     constructor(
         IVault vault,
         IWETH weth,
@@ -167,7 +174,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             abi.decode(
                 _vault.unlock(
                     abi.encodeCall(
-                        AngstromBalancer.swapExactInHookAngstrom,
+                        AngstromBalancer.swapExactInAngstromHook,
                         SwapExactInHookParams({
                             sender: msg.sender,
                             paths: paths,
@@ -181,26 +188,19 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             );
     }
 
-    function swapExactInHookAngstrom(
+    function swapExactInAngstromHook(
         SwapExactInHookParams calldata params
     )
         external
         nonReentrant
         onlyVault
+        withValidUserData(params.userData)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
-        // validate signature and sender.
-        if (params.userData.length < 20) {
-            revert InvalidSignature();
-        }
-
-        (address payer, bytes memory signature) = _splitUserData(params.userData);
-        // The signature looks well-formed.
         bytes32 digest = _computeDigestSwapExactIn(params.paths);
 
-        if (SignatureCheckerLib.isValidSignatureNow(payer, digest, signature) == false) {
-            revert InvalidSignature();
-        }
+        // This reverts if the signature is invalid.
+        address payer = _extractPayerWithValidSignature(digest, params.userData);
 
         (pathAmountsOut, tokensOut, amountsOut) = _swapExactInHook(params);
 
@@ -227,7 +227,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             abi.decode(
                 _vault.unlock(
                     abi.encodeCall(
-                        AngstromBalancer.swapExactOutHookAngstrom,
+                        AngstromBalancer.swapExactOutAngstromHook,
                         SwapExactOutHookParams({
                             sender: msg.sender,
                             paths: paths,
@@ -241,26 +241,19 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             );
     }
 
-    function swapExactOutHookAngstrom(
+    function swapExactOutAngstromHook(
         SwapExactOutHookParams calldata params
     )
         external
         nonReentrant
         onlyVault
+        withValidUserData(params.userData)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
-        // validate signature and sender.
-        if (params.userData.length < 20) {
-            revert InvalidSignature();
-        }
-
-        (address payer, bytes memory signature) = _splitUserData(params.userData);
-        // The signature looks well-formed.
         bytes32 digest = _computeDigestSwapExactOut(params.paths);
 
-        if (SignatureCheckerLib.isValidSignatureNow(payer, digest, signature) == false) {
-            revert InvalidSignature();
-        }
+        // This reverts if the signature is invalid.
+        address payer = _extractPayerWithValidSignature(digest, params.userData);
 
         (pathAmountsIn, tokensIn, amountsIn) = _swapExactOutHook(params);
 
@@ -497,10 +490,10 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     function _unlockAngstromWithSignature(bytes memory userData) internal {
         // Queries are always allowed.
         if (_isAngstromUnlocked() == false && EVMCallModeHelpers.isStaticCall() == false) {
-            if (userData.length < 20) {
+            if (userData.length < _MINIMUM_USER_DATA_LENGTH) {
                 revert InvalidSignature();
             } else {
-                (address node, bytes memory signature) = _splitUserData(userData);
+                (address node, bytes memory signature) = _splitUserDataMemory(userData);
                 // The signature looks well-formed. Revert if it doesn't correspond to a registered node.
                 _unlockWithEmptyAttestation(node, signature);
             }
@@ -508,22 +501,14 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     }
 
     function _computeDigestSwapExactIn(SwapPathExactAmountIn[] memory paths) internal view returns (bytes32) {
-        // First, hash the paths array according to EIP-712
+        // First, hash the paths array according to EIP-712.
         bytes32 pathsHash = _hashSwapExactInPathArray(paths);
+        bytes32 structHash = _computeStructHashWithBlockNumber(_SWAP_EXACT_IN_TYPE_HASH, pathsHash);
 
-        bytes32 swapExactInStructHash;
-        // solhint-disable-next-line no-inline-assembly
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(ptr, _SWAP_EXACT_IN_TYPE_HASH)
-            mstore(add(ptr, 0x20), pathsHash)
-            mstore(add(ptr, 0x40), number())
-            swapExactInStructHash := keccak256(ptr, 0x60)
-        }
-        return _hashTypedData(swapExactInStructHash);
+        return _hashTypedData(structHash);
     }
 
-    // Helper function to hash the SwapPathExactAmountIn array
+    // Helper function to hash the SwapPathExactAmountIn array.
     function _hashSwapExactInPathArray(SwapPathExactAmountIn[] memory paths) internal pure returns (bytes32) {
         bytes32[] memory pathHashes = new bytes32[](paths.length);
 
@@ -536,8 +521,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     // Helper function to hash a single SwapPathExactAmountIn
     function _hashSwapExactInPath(SwapPathExactAmountIn memory path) internal pure returns (bytes32) {
-        // You'll need to define the type hash for SwapPathExactAmountIn
-        // For now, using a simple encoding (adjust based on your EIP-712 schema)
+        // We need to define a type hash for SwapPathExactAmountIn.
+        // For now, using a simple encoding (adjust based on the EIP-712 schema).
         bytes32[] memory stepHashes = new bytes32[](path.steps.length);
 
         for (uint256 i = 0; i < path.steps.length; i++) {
@@ -550,22 +535,28 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     }
 
     function _computeDigestSwapExactOut(SwapPathExactAmountOut[] memory paths) internal view returns (bytes32) {
-        // First, hash the paths array according to EIP-712
+        // First, hash the paths array according to EIP-712.
         bytes32 pathsHash = _hashSwapExactOutPathArray(paths);
+        bytes32 structHash = _computeStructHashWithBlockNumber(_SWAP_EXACT_OUT_TYPE_HASH, pathsHash);
 
-        bytes32 swapExactOutStructHash;
+        return _hashTypedData(structHash);
+    }
+
+    function _computeStructHashWithBlockNumber(uint256 typeHash, bytes32 contentHash) internal view returns (bytes32) {
+        bytes32 structHash;
         // solhint-disable-next-line no-inline-assembly
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, _SWAP_EXACT_OUT_TYPE_HASH)
-            mstore(add(ptr, 0x20), pathsHash)
+            mstore(ptr, typeHash)
+            mstore(add(ptr, 0x20), contentHash)
             mstore(add(ptr, 0x40), number())
-            swapExactOutStructHash := keccak256(ptr, 0x60)
+            structHash := keccak256(ptr, 0x60)
         }
-        return _hashTypedData(swapExactOutStructHash);
+
+        return structHash;
     }
 
-    // Helper function to hash the SwapPathExactAmountOut array
+    // Helper function to hash the SwapPathExactAmountOut array.
     function _hashSwapExactOutPathArray(SwapPathExactAmountOut[] memory paths) internal pure returns (bytes32) {
         bytes32[] memory pathHashes = new bytes32[](paths.length);
 
@@ -576,8 +567,10 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         return keccak256(abi.encodePacked(pathHashes));
     }
 
-    // Helper function to hash a single SwapPathExactAmountOut
+    // Helper function to hash a single SwapPathExactAmountOut.
     function _hashSwapExactOutPath(SwapPathExactAmountOut memory path) internal pure returns (bytes32) {
+        // We need to define a type hash for SwapPathExactAmountOut.
+        // For now, using a simple encoding (adjust based on the EIP-712 schema).
         bytes32[] memory stepHashes = new bytes32[](path.steps.length);
 
         for (uint256 i = 0; i < path.steps.length; i++) {
@@ -590,19 +583,16 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     }
 
     function _getDigest() internal view returns (bytes32) {
-        bytes32 attestationStructHash;
-        // solhint-disable-next-line no-inline-assembly
-        assembly ("memory-safe") {
-            mstore(0x00, _ATTEST_EMPTY_BLOCK_TYPE_HASH)
-            mstore(0x20, number())
-            attestationStructHash := keccak256(0x00, 0x40)
-        }
-        return _hashTypedData(attestationStructHash);
+        bytes32 structHash = _computeStructHashWithBlockNumber(
+            _ATTEST_EMPTY_BLOCK_TYPE_HASH,
+            bytes32(0) // no content for empty attestation
+        );
+        return _hashTypedData(structHash);
     }
 
     // The first 20 bytes of the user data is the node address; the rest is the signature.
     // This function separates the two so that the node signature can be verified.
-    function _splitUserData(
+    function _splitUserDataMemory(
         bytes memory userData
     ) internal pure returns (address extractedAddress, bytes memory hashedMessage) {
         uint256 signatureLength = userData.length - 20;
@@ -618,6 +608,13 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
             // The remaining bytes are the hashed message. 52 is 32 + 20 (length + address length).
             mcopy(add(hashedMessage, 32), add(userData, 52), signatureLength)
         }
+    }
+
+    function _splitUserData(
+        bytes calldata userData
+    ) internal pure returns (address extractedAddress, bytes calldata signature) {
+        extractedAddress = address(bytes20(userData[0:20]));
+        signature = userData[20:];
     }
 
     // Signature passed in memory (from userData).
@@ -647,6 +644,25 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         // Only one manual unlock or direct swap is permitted per block.
         if (_isAngstromUnlocked()) {
             revert OnlyOncePerBlock();
+        }
+    }
+
+    function _ensureUserData(bytes calldata userData) internal pure {
+        // Basic length validation of the user data, before splitting and signature validation.
+        if (userData.length < _MINIMUM_USER_DATA_LENGTH) {
+            revert InvalidSignature();
+        }
+    }
+
+    function _extractPayerWithValidSignature(
+        bytes32 digest,
+        bytes calldata userData
+    ) internal view returns (address payer) {
+        bytes memory signature;
+        (payer, signature) = _splitUserData(userData);
+
+        if (SignatureCheckerLib.isValidSignatureNow(payer, digest, signature) == false) {
+            revert InvalidSignature();
         }
     }
 
