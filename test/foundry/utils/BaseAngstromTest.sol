@@ -25,12 +25,17 @@ contract BaseAngstromTest is BaseVaultTest {
     bytes internal lpSignature;
     bytes internal lpUserData;
 
+    uint256 internal usdcIdx;
+    uint256 internal daiIdx;
+
     function setUp() public virtual override {
         BaseVaultTest.setUp();
 
         (aliceSignature, aliceUserData) = generateSignatureAndUserDataEmptyAttestation(alice, aliceKey);
         (bobSignature, bobUserData) = generateSignatureAndUserDataEmptyAttestation(bob, bobKey);
         (lpSignature, lpUserData) = generateSignatureAndUserDataEmptyAttestation(lp, lpKey);
+    
+        (usdcIdx, daiIdx) = getSortedIndexes(address(usdc), address(dai));
     }
 
     function createHook() internal override returns (address) {
