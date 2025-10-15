@@ -130,13 +130,7 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         uint256 deadline,
         bool wethIsEth,
         bytes calldata userData
-    )
-        external
-        payable
-        onlyValidatorNode
-        onlyWhenLocked
-        saveSender(msg.sender)
-    {
+    ) external payable onlyValidatorNode onlyWhenLocked saveSender(msg.sender) {
         _unlockAngstrom();
 
         _vault.unlock(
@@ -185,13 +179,7 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         uint256 deadline,
         bool wethIsEth,
         bytes calldata userData
-    )
-        external
-        payable
-        onlyValidatorNode
-        onlyWhenLocked
-        saveSender(msg.sender)
-    {
+    ) external payable onlyValidatorNode onlyWhenLocked saveSender(msg.sender) {
         _unlockAngstrom();
 
         _vault.unlock(
