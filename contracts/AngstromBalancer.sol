@@ -123,7 +123,8 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
                                        Swaps
     ***************************************************************************/
 
-    function swapExactIn(
+    /// @inheritdoc IAngstromBalancer
+    function swapExactInAngstrom(
         SwapPathExactAmountIn[] memory pathsToB,
         ToBSwapData[] memory tobSwaps,
         uint256 deadline,
@@ -135,29 +136,24 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         onlyValidatorNode
         onlyWhenLocked
         saveSender(msg.sender)
-        returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
         _unlockAngstrom();
 
-        return
-            abi.decode(
-                _vault.unlock(
-                    abi.encodeCall(
-                        AngstromBalancer.swapExactInAngstromHook,
-                        (
-                            SwapExactInHookParams({
-                                sender: msg.sender,
-                                paths: pathsToB,
-                                deadline: deadline,
-                                wethIsEth: wethIsEth,
-                                userData: userData
-                            }),
-                            tobSwaps
-                        )
-                    )
-                ),
-                (uint256[], address[], uint256[])
-            );
+        _vault.unlock(
+            abi.encodeCall(
+                AngstromBalancer.swapExactInAngstromHook,
+                (
+                    SwapExactInHookParams({
+                        sender: msg.sender,
+                        paths: pathsToB,
+                        deadline: deadline,
+                        wethIsEth: wethIsEth,
+                        userData: userData
+                    }),
+                    tobSwaps
+                )
+            )
+        );
     }
 
     function swapExactInAngstromHook(
@@ -182,7 +178,8 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         _settleToBPath(tobSwaps, params.wethIsEth);
     }
 
-    function swapExactOut(
+    /// @inheritdoc IAngstromBalancer
+    function swapExactOutAngstrom(
         SwapPathExactAmountOut[] memory pathsToB,
         ToBSwapData[] memory tobSwaps,
         uint256 deadline,
@@ -194,29 +191,24 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         onlyValidatorNode
         onlyWhenLocked
         saveSender(msg.sender)
-        returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
         _unlockAngstrom();
 
-        return
-            abi.decode(
-                _vault.unlock(
-                    abi.encodeCall(
-                        AngstromBalancer.swapExactOutAngstromHook,
-                        (
-                            SwapExactOutHookParams({
-                                sender: msg.sender,
-                                paths: pathsToB,
-                                deadline: deadline,
-                                wethIsEth: wethIsEth,
-                                userData: userData
-                            }),
-                            tobSwaps
-                        )
-                    )
-                ),
-                (uint256[], address[], uint256[])
-            );
+        _vault.unlock(
+            abi.encodeCall(
+                AngstromBalancer.swapExactOutAngstromHook,
+                (
+                    SwapExactOutHookParams({
+                        sender: msg.sender,
+                        paths: pathsToB,
+                        deadline: deadline,
+                        wethIsEth: wethIsEth,
+                        userData: userData
+                    }),
+                    tobSwaps
+                )
+            )
+        );
     }
 
     function swapExactOutAngstromHook(
@@ -239,75 +231,6 @@ contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthent
         (pathAmountsIn, tokensIn, amountsIn) = _swapExactOutHook(params);
 
         _settleToBPath(tobSwaps, params.wethIsEth);
-    }
-
-    /***************************************************************************
-                                     Queries
-    ***************************************************************************/
-
-    // Note that queries do not require coordination with Angstrom, and can be called by anyone at any time.
-    // We include them here to satisfy the IBatchRouter interface.
-
-    function querySwapExactIn(
-        SwapPathExactAmountIn[] memory paths,
-        address sender,
-        bytes calldata userData
-    )
-        external
-        saveSender(sender)
-        returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
-    {
-        for (uint256 i = 0; i < paths.length; ++i) {
-            paths[i].minAmountOut = 0;
-        }
-
-        return
-            abi.decode(
-                _vault.quote(
-                    abi.encodeCall(
-                        BatchRouterHooks.querySwapExactInHook,
-                        SwapExactInHookParams({
-                            sender: address(this),
-                            paths: paths,
-                            deadline: type(uint256).max,
-                            wethIsEth: false,
-                            userData: userData
-                        })
-                    )
-                ),
-                (uint256[], address[], uint256[])
-            );
-    }
-
-    function querySwapExactOut(
-        SwapPathExactAmountOut[] memory paths,
-        address sender,
-        bytes calldata userData
-    )
-        external
-        saveSender(sender)
-        returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
-    {
-        for (uint256 i = 0; i < paths.length; ++i) {
-            paths[i].maxAmountIn = _MAX_AMOUNT;
-        }
-
-        return
-            abi.decode(
-                _vault.quote(
-                    abi.encodeCall(
-                        BatchRouterHooks.querySwapExactOutHook,
-                        SwapExactOutHookParams({
-                            sender: address(this),
-                            paths: paths,
-                            deadline: type(uint256).max,
-                            wethIsEth: false,
-                            userData: userData
-                        })
-                    )
-                ),
-                (uint256[], address[], uint256[])
-            );
     }
 
     /***************************************************************************

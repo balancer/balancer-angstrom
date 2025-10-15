@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.24;
 
+import "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
+
 /**
  * @notice Interface for the Angstrom Router and Hook.
  * @dev This interface defines the public API for the AngstromBalancer contract.
@@ -76,6 +78,60 @@ interface IAngstromBalancer {
     /***************************************************************************
                                    Public Functions
     ***************************************************************************/
+
+    /**
+     * @notice Executes a batch swap with pathsToB and pay to swappers according to tobSwaps.
+     * @dev This router executes all Top of Block (ToB) swaps in a single batch router path. ToB swaps have the 
+     * advantage of executing first in a block, so they know exactly the amount of tokens in and out. Therefore, these
+     * swaps can be combined to optimize gas.
+     * Notice that this function does not follow the swapExactIn implementation of the IBatchRouter interface. That's
+     * because we need to collect and return tokens to the payers in ToB swaps, and not the msg.sender. So, we need
+     * two separate structs: one to describe the swap path, the other to describe amounts to be distributed to each 
+     * payer.
+     * Also, notice that this function does not return the tokens out and amounts out.
+     * 
+     * @param pathsToB All ToB swaps combined in a single path
+     * @param tobSwaps Structs describing the amounts to be distributed to each payer and payer signatures
+     * @param deadline Deadline for the swap, after which it will revert
+     * @param wethIsEth If true, incoming ETH will be wrapped to WETH and outgoing WETH will be unwrapped to ETH
+     * @param userData Additional (optional) data required for the swap
+     */
+    function swapExactInAngstrom(
+        SwapPathExactAmountIn[] memory pathsToB,
+        ToBSwapData[] memory tobSwaps,
+        uint256 deadline,
+        bool wethIsEth,
+        bytes calldata userData
+    )
+        external
+        payable;
+
+    /**
+     * @notice Executes a batch swap with pathsToB and pay to swappers according to tobSwaps.
+     * @dev This router executes all Top of Block (ToB) swaps in a single batch router path. ToB swaps have the 
+     * advantage of executing first in a block, so they know exactly the amount of tokens in and out. Therefore, these
+     * swaps can be combined to optimize gas.
+     * Notice that this function does not follow the swapExactIn implementation of the IBatchRouter interface. That's
+     * because we need to collect and return tokens to the payers in ToB swaps, and not the msg.sender. So, we need
+     * two separate structs: one to describe the swap path, the other to describe amounts to be distributed to each 
+     * payer.
+     * Also, notice that this function does not return the tokens out and amounts out.
+     * 
+     * @param pathsToB All ToB swaps combined in a single path
+     * @param tobSwaps Structs describing the amounts to be distributed to each payer and payer signatures
+     * @param deadline Deadline for the swap, after which it will revert
+     * @param wethIsEth If true, incoming ETH will be wrapped to WETH and outgoing WETH will be unwrapped to ETH
+     * @param userData Additional (optional) data required for the swap
+     */
+    function swapExactOutAngstrom(
+        SwapPathExactAmountOut[] memory pathsToB,
+        ToBSwapData[] memory tobSwaps,
+        uint256 deadline,
+        bool wethIsEth,
+        bytes calldata userData
+    )
+        external
+        payable;
 
     /**
      * @notice Unlocks the Angstrom network without requiring an operation.
