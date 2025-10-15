@@ -34,7 +34,7 @@ contract BaseAngstromTest is BaseVaultTest {
         (aliceSignature, aliceUserData) = generateSignatureAndUserDataEmptyAttestation(alice, aliceKey);
         (bobSignature, bobUserData) = generateSignatureAndUserDataEmptyAttestation(bob, bobKey);
         (lpSignature, lpUserData) = generateSignatureAndUserDataEmptyAttestation(lp, lpKey);
-    
+
         (usdcIdx, daiIdx) = getSortedIndexes(address(usdc), address(dai));
     }
 

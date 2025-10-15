@@ -104,12 +104,7 @@ contract AngstromRouterTest is BaseAngstromTest {
         SwapPathStep[] memory steps = new SwapPathStep[](1);
         steps[0] = SwapPathStep({ pool: pool, tokenOut: usdc, isBuffer: false });
         SwapPathExactAmountIn[] memory paths = new SwapPathExactAmountIn[](1);
-        paths[0] = SwapPathExactAmountIn({
-            tokenIn: dai,
-            steps: steps,
-            exactAmountIn: 3e18,
-            minAmountOut: 0
-        });
+        paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 3e18, minAmountOut: 0 });
 
         IAngstromBalancer.ToBSwapData[] memory tobSwaps = new IAngstromBalancer.ToBSwapData[](2);
         tobSwaps[0] = IAngstromBalancer.ToBSwapData({
@@ -139,11 +134,27 @@ contract AngstromRouterTest is BaseAngstromTest {
 
         Balances memory balancesAfter = getBalances(lp);
 
-        assertEq(balancesAfter.lpTokens[usdcIdx], balancesBefore.lpTokens[usdcIdx] + 2e18, "LP USDC balance is not correct");
-        assertEq(balancesAfter.lpTokens[daiIdx], balancesBefore.lpTokens[daiIdx] - 2e18, "LP DAI balance is not correct");
+        assertEq(
+            balancesAfter.lpTokens[usdcIdx],
+            balancesBefore.lpTokens[usdcIdx] + 2e18,
+            "LP USDC balance is not correct"
+        );
+        assertEq(
+            balancesAfter.lpTokens[daiIdx],
+            balancesBefore.lpTokens[daiIdx] - 2e18,
+            "LP DAI balance is not correct"
+        );
 
-        assertEq(balancesAfter.aliceTokens[usdcIdx], balancesBefore.aliceTokens[usdcIdx] + 1e18, "Alice USDC balance is not correct");
-        assertEq(balancesAfter.aliceTokens[daiIdx], balancesBefore.aliceTokens[daiIdx] - 1e18, "Alice DAI balance is not correct");
+        assertEq(
+            balancesAfter.aliceTokens[usdcIdx],
+            balancesBefore.aliceTokens[usdcIdx] + 1e18,
+            "Alice USDC balance is not correct"
+        );
+        assertEq(
+            balancesAfter.aliceTokens[daiIdx],
+            balancesBefore.aliceTokens[daiIdx] - 1e18,
+            "Alice DAI balance is not correct"
+        );
     }
 
     function testQuerySwapExactIn() public {
@@ -314,11 +325,27 @@ contract AngstromRouterTest is BaseAngstromTest {
 
         Balances memory balancesAfter = getBalances(lp);
 
-        assertEq(balancesAfter.lpTokens[usdcIdx], balancesBefore.lpTokens[usdcIdx] + 2e18, "LP USDC balance is not correct");
-        assertEq(balancesAfter.lpTokens[daiIdx], balancesBefore.lpTokens[daiIdx] - 2e18, "LP DAI balance is not correct");
+        assertEq(
+            balancesAfter.lpTokens[usdcIdx],
+            balancesBefore.lpTokens[usdcIdx] + 2e18,
+            "LP USDC balance is not correct"
+        );
+        assertEq(
+            balancesAfter.lpTokens[daiIdx],
+            balancesBefore.lpTokens[daiIdx] - 2e18,
+            "LP DAI balance is not correct"
+        );
 
-        assertEq(balancesAfter.aliceTokens[usdcIdx], balancesBefore.aliceTokens[usdcIdx] + 1e18, "Alice USDC balance is not correct");
-        assertEq(balancesAfter.aliceTokens[daiIdx], balancesBefore.aliceTokens[daiIdx] - 1e18, "Alice DAI balance is not correct");
+        assertEq(
+            balancesAfter.aliceTokens[usdcIdx],
+            balancesBefore.aliceTokens[usdcIdx] + 1e18,
+            "Alice USDC balance is not correct"
+        );
+        assertEq(
+            balancesAfter.aliceTokens[daiIdx],
+            balancesBefore.aliceTokens[daiIdx] - 1e18,
+            "Alice DAI balance is not correct"
+        );
     }
 
     function testQuerySwapExactOut() public {
