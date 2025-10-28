@@ -41,13 +41,60 @@ contract AngstromRouterTest is BaseAngstromTest {
         angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
     }
 
-    function testSwapExactInUnlocksAngstrom() public {
+    function testSwapExactInAngstromWithoutSignature() public {
         registerAngstromNode(bob);
 
         SwapPathExactAmountIn[] memory paths;
 
         vm.prank(bob);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
         angstromBalancer.swapExactIn(paths, MAX_UINT256, false, bytes(""));
+    }
+
+    function testSwapExactInAngstromPathDifferentFromSignature() public {
+        registerAngstromNode(bob);
+
+        SwapPathStep[] memory steps = new SwapPathStep[](1);
+        steps[0] = SwapPathStep({ pool: pool, tokenOut: usdc, isBuffer: false });
+        SwapPathExactAmountIn[] memory paths = new SwapPathExactAmountIn[](1);
+        paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 1e18, minAmountOut: 0 });
+
+        (, bytes memory userData) = generateSignatureAndUserDataSwapExactIn(alice, aliceKey, paths);
+
+        paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 1.01e18, minAmountOut: 0 });
+
+        vm.prank(bob);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, userData);
+    }
+
+    function testSwapExactInAngstromBlockNumberDifferentFromSignature() public {
+        registerAngstromNode(bob);
+
+        SwapPathStep[] memory steps = new SwapPathStep[](1);
+        steps[0] = SwapPathStep({ pool: pool, tokenOut: usdc, isBuffer: false });
+        SwapPathExactAmountIn[] memory paths = new SwapPathExactAmountIn[](1);
+        paths[0] = SwapPathExactAmountIn({ tokenIn: dai, steps: steps, exactAmountIn: 1e18, minAmountOut: 0 });
+
+        (, bytes memory userData) = generateSignatureAndUserDataSwapExactIn(alice, aliceKey, paths);
+        // Moving block number should invalidate signature
+        vm.roll(block.number + 1);
+
+        vm.prank(bob);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, userData);
+    }
+
+    function testSwapExactInUnlocksAngstrom() public {
+        registerAngstromNode(bob);
+
+        SwapPathExactAmountIn[] memory paths;
+
+        (, bytes memory userData) = generateSignatureAndUserDataSwapExactIn(alice, aliceKey, paths);
+
+        vm.prank(bob);
+        angstromBalancer.swapExactIn(paths, MAX_UINT256, false, userData);
+
         assertEq(
             angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
@@ -72,9 +119,11 @@ contract AngstromRouterTest is BaseAngstromTest {
 
         registerAngstromNode(bob);
 
+        (, bytes memory userData) = generateSignatureAndUserDataSwapExactIn(alice, aliceKey, paths);
+
         vm.prank(bob);
         (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut) = angstromBalancer
-            .swapExactIn(paths, MAX_UINT256, false, bytes(""));
+            .swapExactIn(paths, MAX_UINT256, false, userData);
 
         assertEq(pathAmountsOut.length, pathAmountsOutQuery.length, "Path amounts out length is not equal");
         assertEq(tokensOut.length, tokensOutQuery.length, "Tokens out length is not equal");
@@ -105,12 +154,75 @@ contract AngstromRouterTest is BaseAngstromTest {
         angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
     }
 
+    function testSwapExactOutAngstromWithoutSignature() public {
+        registerAngstromNode(bob);
+
+        SwapPathExactAmountOut[] memory paths;
+
+        vm.prank(bob);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
+    }
+
+    function testSwapExactOutAngstromPathDifferentFromSignature() public {
+        registerAngstromNode(bob);
+
+        SwapPathStep[] memory steps = new SwapPathStep[](1);
+        steps[0] = SwapPathStep({ pool: pool, tokenOut: usdc, isBuffer: false });
+        SwapPathExactAmountOut[] memory paths = new SwapPathExactAmountOut[](1);
+        paths[0] = SwapPathExactAmountOut({
+            tokenIn: dai,
+            steps: steps,
+            exactAmountOut: 1e18,
+            maxAmountIn: MAX_UINT256
+        });
+
+        (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
+
+        paths[0] = SwapPathExactAmountOut({
+            tokenIn: dai,
+            steps: steps,
+            exactAmountOut: 1.01e18,
+            maxAmountIn: MAX_UINT256
+        });
+
+        vm.prank(bob);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, userData);
+    }
+
+    function testSwapExactOutAngstromBlockNumberDifferentFromSignature() public {
+        registerAngstromNode(bob);
+
+        SwapPathStep[] memory steps = new SwapPathStep[](1);
+        steps[0] = SwapPathStep({ pool: pool, tokenOut: usdc, isBuffer: false });
+        SwapPathExactAmountOut[] memory paths = new SwapPathExactAmountOut[](1);
+        paths[0] = SwapPathExactAmountOut({
+            tokenIn: dai,
+            steps: steps,
+            exactAmountOut: 1e18,
+            maxAmountIn: MAX_UINT256
+        });
+
+        (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
+        // Moving block number should invalidate signature
+        vm.roll(block.number + 1);
+
+        vm.prank(bob);
+        vm.expectRevert(AngstromBalancer.InvalidSignature.selector);
+        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, userData);
+    }
+
     function testSwapExactOutUnlocksRouter() public {
         registerAngstromNode(bob);
 
         SwapPathExactAmountOut[] memory paths;
+
+        (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
+
         vm.prank(bob);
-        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, bytes(""));
+        angstromBalancer.swapExactOut(paths, MAX_UINT256, false, userData);
+
         assertEq(
             angstromBalancer.getLastUnlockBlockNumber(),
             block.number,
@@ -140,9 +252,11 @@ contract AngstromRouterTest is BaseAngstromTest {
 
         registerAngstromNode(bob);
 
+        (, bytes memory userData) = generateSignatureAndUserDataSwapExactOut(alice, aliceKey, paths);
+
         vm.prank(bob);
         (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn) = angstromBalancer
-            .swapExactOut(paths, MAX_UINT256, false, bytes(""));
+            .swapExactOut(paths, MAX_UINT256, false, userData);
 
         assertEq(pathAmountsIn.length, pathAmountsInQuery.length, "Path amounts in length is not equal");
         assertEq(tokensIn.length, tokensInQuery.length, "Tokens in length is not equal");
