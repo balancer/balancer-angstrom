@@ -6,9 +6,7 @@ import { SignatureCheckerLib } from "solady/src/utils/SignatureCheckerLib.sol";
 import { IPermit2 } from "permit2/src/interfaces/IPermit2.sol";
 import { EIP712 } from "solady/src/utils/EIP712.sol";
 
-import { IBatchRouterQueries } from "@balancer-labs/v3-interfaces/contracts/vault/IBatchRouterQueries.sol";
 import { IWETH } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/misc/IWETH.sol";
-import { IBatchRouter } from "@balancer-labs/v3-interfaces/contracts/vault/IBatchRouter.sol";
 import { IHooks } from "@balancer-labs/v3-interfaces/contracts/vault/IHooks.sol";
 import { IVault } from "@balancer-labs/v3-interfaces/contracts/vault/IVault.sol";
 import "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
@@ -17,7 +15,15 @@ import "@balancer-labs/v3-interfaces/contracts/vault/VaultTypes.sol";
 import { EVMCallModeHelpers } from "@balancer-labs/v3-solidity-utils/contracts/helpers/EVMCallModeHelpers.sol";
 import { OwnableAuthentication } from "@balancer-labs/v3-standalone-utils/contracts/OwnableAuthentication.sol";
 import { BatchRouterHooks } from "@balancer-labs/v3-vault/contracts/BatchRouterHooks.sol";
+import {
+    TransientEnumerableSet
+} from "@balancer-labs/v3-solidity-utils/contracts/openzeppelin/TransientEnumerableSet.sol";
+import {
+    TransientStorageHelpers
+} from "@balancer-labs/v3-solidity-utils/contracts/helpers/TransientStorageHelpers.sol";
 import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
+
+import { IAngstromBalancer } from "./interfaces/IAngstromBalancer.sol";
 
 /**
  * @notice Angstrom Router and Hook, used to trade against Angstrom pools.
@@ -63,7 +69,10 @@ import { BaseHooks } from "@balancer-labs/v3-vault/contracts/BaseHooks.sol";
  *
  * See [this diagram](https://drive.google.com/file/d/1A4kNi0ocI_V8tWcy3ruGNf-AaoP04bmR/view?usp=sharing).
  */
-contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthentication, BaseHooks, EIP712 {
+contract AngstromBalancer is IAngstromBalancer, BatchRouterHooks, OwnableAuthentication, BaseHooks, EIP712 {
+    using TransientEnumerableSet for TransientEnumerableSet.AddressSet;
+    using TransientStorageHelpers for *;
+
     /// @dev `keccak256("AttestAngstromBlockEmpty(uint64 block_number)")`.
     uint256 internal constant _ATTEST_EMPTY_BLOCK_TYPE_HASH =
         0x3f25e551746414ff93f076a7dd83828ff53735b39366c74015637e004fcb0223;
@@ -76,6 +85,12 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     uint256 internal constant _SWAP_EXACT_OUT_TYPE_HASH =
         0xb26cc9223a5f7a414a15401ce11a9ef78c5c9daf4bc40c11e20d3f53cb9d79a5;
 
+    /**
+     * @dev `keccak256("ToBSwap(address tokenIn,address tokenOut,uint256 exactAmountIn,uint256 exactAmountOut,address
+     * payer,uint64 block_number)")`.
+     */
+    uint256 internal constant _TOB_SWAP_TYPE_HASH = 0x33ea2c5351079a10fb30dea7d5e13a7b1a184012f4f990b1ce23e7a65822518f;
+
     uint256 internal constant _MINIMUM_USER_DATA_LENGTH = 20;
 
     /// @dev Set of active Angstrom validator nodes, authorized to unlock this contract for operations.
@@ -83,47 +98,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     /// @dev The currently "unlocked" block. The contract is locked if the current block does not equal this number.
     uint256 internal _lastUnlockBlockNumber;
-
-    /**
-     * @notice This contract can only be unlocked once per block.
-     * @dev This should not happen, but could if an Angstrom validator manually unlocks the contract twice, or manually
-     * unlocks in the same block after the Angstrom bundle has been executed, or if there is more than one direct swap
-     * in the bundle.
-     */
-    error OnlyOncePerBlock();
-
-    /**
-     * @notice An account attempted to unlock this contract that was not a registered Angstrom validator.
-     * @dev The node must be registered as an Angstrom node to unlock the contract for operations, either directly or
-     * by executing a permissioned operation. This can also occur for a valid signature, if the node address is
-     * unregistered.
-     */
-    error NotNode();
-
-    /**
-     * @notice The signature provided on a swap or liquidity operation was invalid.
-     * @dev The user provided a signature of the correct length, and the node address is registered, but the hashed
-     * message is wrong.
-     */
-    error InvalidSignature();
-
-    /**
-     * @notice The node was already registered.
-     * @dev The node was already registered as an Angstrom node
-     */
-    error NodeAlreadyRegistered();
-
-    /**
-     * @notice The node was not registered.
-     * @dev The node was not registered as an Angstrom node
-     */
-    error NodeNotRegistered();
-
-    /// @notice A node was registered and is allowed to unlock Angstrom pools.
-    event NodeRegistered(address indexed node);
-
-    /// @notice A node was deregistered and is no longer able to unlock Angstrom pools.
-    event NodeDeregistered(address indexed node);
 
     modifier onlyValidatorNode() {
         // Only Validators can call direct swaps on this router.
@@ -133,11 +107,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     modifier onlyWhenLocked() {
         _ensureAngstromLocked();
-        _;
-    }
-
-    modifier withValidUserData(bytes calldata userData) {
-        _ensureUserData(userData);
         _;
     }
 
@@ -154,181 +123,102 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
                                        Swaps
     ***************************************************************************/
 
-    /// @inheritdoc IBatchRouter
-    function swapExactIn(
-        SwapPathExactAmountIn[] memory paths,
+    /// @inheritdoc IAngstromBalancer
+    function swapExactInAngstrom(
+        SwapPathExactAmountIn[] memory pathsToB,
+        ToBSwapData[] memory tobSwaps,
         uint256 deadline,
         bool wethIsEth,
         bytes calldata userData
-    )
-        external
-        payable
-        onlyValidatorNode
-        onlyWhenLocked
-        saveSender(msg.sender)
-        returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
-    {
+    ) external payable onlyValidatorNode onlyWhenLocked saveSender(msg.sender) {
         _unlockAngstrom();
 
-        return
-            abi.decode(
-                _vault.unlock(
-                    abi.encodeCall(
-                        AngstromBalancer.swapExactInAngstromHook,
-                        SwapExactInHookParams({
-                            sender: msg.sender,
-                            paths: paths,
-                            deadline: deadline,
-                            wethIsEth: wethIsEth,
-                            userData: userData
-                        })
-                    )
-                ),
-                (uint256[], address[], uint256[])
-            );
+        _vault.unlock(
+            abi.encodeCall(
+                AngstromBalancer.swapExactInAngstromHook,
+                (
+                    SwapExactInHookParams({
+                        sender: msg.sender,
+                        paths: pathsToB,
+                        deadline: deadline,
+                        wethIsEth: wethIsEth,
+                        userData: userData
+                    }),
+                    tobSwaps
+                )
+            )
+        );
     }
 
     function swapExactInAngstromHook(
-        SwapExactInHookParams calldata params
+        SwapExactInHookParams calldata params,
+        ToBSwapData[] calldata tobSwaps
     )
         external
         nonReentrant
         onlyVault
-        withValidUserData(params.userData)
         returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
     {
-        bytes32 digest = _computeDigestSwapExactIn(params.paths);
+        for (uint256 i = 0; i < tobSwaps.length; i++) {
+            bytes32 digest = _computeDigestToB(tobSwaps[i]);
 
-        // This reverts if the signature is invalid.
-        address payer = _extractPayerWithValidSignature(digest, params.userData);
+            if (SignatureCheckerLib.isValidSignatureNow(tobSwaps[i].payer, digest, tobSwaps[i].signature) == false) {
+                revert InvalidSignature();
+            }
+        }
 
         (pathAmountsOut, tokensOut, amountsOut) = _swapExactInHook(params);
 
-        _settlePaths(payer, params.wethIsEth);
+        _settleToBPath(tobSwaps, params.wethIsEth);
     }
 
-    /// @inheritdoc IBatchRouter
-    function swapExactOut(
-        SwapPathExactAmountOut[] memory paths,
+    /// @inheritdoc IAngstromBalancer
+    function swapExactOutAngstrom(
+        SwapPathExactAmountOut[] memory pathsToB,
+        ToBSwapData[] memory tobSwaps,
         uint256 deadline,
         bool wethIsEth,
         bytes calldata userData
-    )
-        external
-        payable
-        onlyValidatorNode
-        onlyWhenLocked
-        saveSender(msg.sender)
-        returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
-    {
+    ) external payable onlyValidatorNode onlyWhenLocked saveSender(msg.sender) {
         _unlockAngstrom();
 
-        return
-            abi.decode(
-                _vault.unlock(
-                    abi.encodeCall(
-                        AngstromBalancer.swapExactOutAngstromHook,
-                        SwapExactOutHookParams({
-                            sender: msg.sender,
-                            paths: paths,
-                            deadline: deadline,
-                            wethIsEth: wethIsEth,
-                            userData: userData
-                        })
-                    )
-                ),
-                (uint256[], address[], uint256[])
-            );
+        _vault.unlock(
+            abi.encodeCall(
+                AngstromBalancer.swapExactOutAngstromHook,
+                (
+                    SwapExactOutHookParams({
+                        sender: msg.sender,
+                        paths: pathsToB,
+                        deadline: deadline,
+                        wethIsEth: wethIsEth,
+                        userData: userData
+                    }),
+                    tobSwaps
+                )
+            )
+        );
     }
 
     function swapExactOutAngstromHook(
-        SwapExactOutHookParams calldata params
+        SwapExactOutHookParams calldata params,
+        ToBSwapData[] calldata tobSwaps
     )
         external
         nonReentrant
         onlyVault
-        withValidUserData(params.userData)
         returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
     {
-        bytes32 digest = _computeDigestSwapExactOut(params.paths);
+        for (uint256 i = 0; i < tobSwaps.length; i++) {
+            bytes32 digest = _computeDigestToB(tobSwaps[i]);
 
-        // This reverts if the signature is invalid.
-        address payer = _extractPayerWithValidSignature(digest, params.userData);
+            if (SignatureCheckerLib.isValidSignatureNow(tobSwaps[i].payer, digest, tobSwaps[i].signature) == false) {
+                revert InvalidSignature();
+            }
+        }
 
         (pathAmountsIn, tokensIn, amountsIn) = _swapExactOutHook(params);
 
-        _settlePaths(payer, params.wethIsEth);
-    }
-
-    /***************************************************************************
-                                     Queries
-    ***************************************************************************/
-
-    // Note that queries do not require coordination with Angstrom, and can be called by anyone at any time.
-    // We include them here to satisfy the IBatchRouter interface.
-
-    /// @inheritdoc IBatchRouterQueries
-    function querySwapExactIn(
-        SwapPathExactAmountIn[] memory paths,
-        address sender,
-        bytes calldata userData
-    )
-        external
-        saveSender(sender)
-        returns (uint256[] memory pathAmountsOut, address[] memory tokensOut, uint256[] memory amountsOut)
-    {
-        for (uint256 i = 0; i < paths.length; ++i) {
-            paths[i].minAmountOut = 0;
-        }
-
-        return
-            abi.decode(
-                _vault.quote(
-                    abi.encodeCall(
-                        BatchRouterHooks.querySwapExactInHook,
-                        SwapExactInHookParams({
-                            sender: address(this),
-                            paths: paths,
-                            deadline: type(uint256).max,
-                            wethIsEth: false,
-                            userData: userData
-                        })
-                    )
-                ),
-                (uint256[], address[], uint256[])
-            );
-    }
-
-    /// @inheritdoc IBatchRouterQueries
-    function querySwapExactOut(
-        SwapPathExactAmountOut[] memory paths,
-        address sender,
-        bytes calldata userData
-    )
-        external
-        saveSender(sender)
-        returns (uint256[] memory pathAmountsIn, address[] memory tokensIn, uint256[] memory amountsIn)
-    {
-        for (uint256 i = 0; i < paths.length; ++i) {
-            paths[i].maxAmountIn = _MAX_AMOUNT;
-        }
-
-        return
-            abi.decode(
-                _vault.quote(
-                    abi.encodeCall(
-                        BatchRouterHooks.querySwapExactOutHook,
-                        SwapExactOutHookParams({
-                            sender: address(this),
-                            paths: paths,
-                            deadline: type(uint256).max,
-                            wethIsEth: false,
-                            userData: userData
-                        })
-                    )
-                ),
-                (uint256[], address[], uint256[])
-            );
+        _settleToBPath(tobSwaps, params.wethIsEth);
     }
 
     /***************************************************************************
@@ -573,11 +463,30 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         return keccak256(abi.encode(path.tokenIn, stepsHash, path.maxAmountIn, path.exactAmountOut));
     }
 
-    function _getDigest() internal view returns (bytes32) {
+    function _computeDigestEmptyAttestation() internal view returns (bytes32) {
         bytes32 structHash = _computeStructHashWithBlockNumber(
             _ATTEST_EMPTY_BLOCK_TYPE_HASH,
             bytes32(0) // no content for empty attestation
         );
+        return _hashTypedData(structHash);
+    }
+
+    function _computeDigestToB(ToBSwapData memory swapData) internal view returns (bytes32) {
+        bytes32 structHash;
+
+        // solhint-disable-next-line no-inline-assembly
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(ptr, _TOB_SWAP_TYPE_HASH)
+            mstore(add(ptr, 0x20), mload(swapData)) // tokenIn
+            mstore(add(ptr, 0x40), mload(add(swapData, 0x20))) // tokenOut
+            mstore(add(ptr, 0x60), mload(add(swapData, 0x40))) // exactAmountIn
+            mstore(add(ptr, 0x80), mload(add(swapData, 0x60))) // exactAmountOut
+            mstore(add(ptr, 0xa0), mload(add(swapData, 0x80))) // payer
+            mstore(add(ptr, 0xc0), number()) // block_number
+            structHash := keccak256(ptr, 0xe0)
+        }
+
         return _hashTypedData(structHash);
     }
 
@@ -622,7 +531,7 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
     function _ensureRegisteredNodeAndReturnDigest(address account) internal view returns (bytes32) {
         _ensureRegisteredNode(account);
 
-        return _getDigest();
+        return _computeDigestEmptyAttestation();
     }
 
     function _ensureRegisteredNode(address account) internal view {
@@ -635,13 +544,6 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
         // Only one manual unlock or direct swap is permitted per block.
         if (_isAngstromUnlocked()) {
             revert OnlyOncePerBlock();
-        }
-    }
-
-    function _ensureUserData(bytes calldata userData) internal pure {
-        // Basic length validation of the user data, before splitting and signature validation.
-        if (userData.length < _MINIMUM_USER_DATA_LENGTH) {
-            revert InvalidSignature();
         }
     }
 
@@ -659,5 +561,29 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     function _unlockAngstrom() internal {
         _lastUnlockBlockNumber = block.number;
+    }
+
+    function _settleToBPath(ToBSwapData[] calldata tobSwaps, bool wethIsEth) internal {
+        for (uint256 i = 0; i < tobSwaps.length; ++i) {
+            ToBSwapData calldata swap = tobSwaps[i];
+
+            // Take tokens from the payer or settle if prepaid
+            _takeOrSettle(swap.payer, wethIsEth, swap.tokenIn, swap.exactAmountIn);
+
+            // These parameters are not used for tobSwaps and should be erased in case other swaps happen
+            // in the same transaction using this router.
+            _currentSwapTokenInAmounts().tSet(swap.tokenIn, 0);
+            _currentSwapTokensIn().remove(swap.tokenIn);
+
+            // Send tokens to the payer
+            _sendTokenOut(swap.payer, IERC20(swap.tokenOut), swap.exactAmountOut, wethIsEth);
+
+            // These parameters are not used for tobSwaps and should be erased in case other swaps happen
+            // in the same transaction using this router.
+            _currentSwapTokenOutAmounts().tSet(swap.tokenOut, 0);
+            _currentSwapTokensOut().remove(swap.tokenOut);
+        }
+
+        // TODO: Should _returnEth be implemented here?
     }
 }

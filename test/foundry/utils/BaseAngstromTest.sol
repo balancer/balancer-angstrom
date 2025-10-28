@@ -8,8 +8,8 @@ import "@balancer-labs/v3-interfaces/contracts/vault/BatchRouterTypes.sol";
 
 import { BaseVaultTest } from "@balancer-labs/v3-vault/test/foundry/utils/BaseVaultTest.sol";
 
+import { IAngstromBalancer } from "../../../contracts/interfaces/IAngstromBalancer.sol";
 import { AngstromBalancerMock } from "../../../contracts/test/AngstromBalancerMock.sol";
-import { AngstromBalancer } from "../../../contracts/AngstromBalancer.sol";
 
 contract BaseAngstromTest is BaseVaultTest {
     string private artifactsRootDir = "artifacts/";
@@ -25,12 +25,17 @@ contract BaseAngstromTest is BaseVaultTest {
     bytes internal lpSignature;
     bytes internal lpUserData;
 
+    uint256 internal usdcIdx;
+    uint256 internal daiIdx;
+
     function setUp() public virtual override {
         BaseVaultTest.setUp();
 
         (aliceSignature, aliceUserData) = generateSignatureAndUserDataEmptyAttestation(alice, aliceKey);
         (bobSignature, bobUserData) = generateSignatureAndUserDataEmptyAttestation(bob, bobKey);
         (lpSignature, lpUserData) = generateSignatureAndUserDataEmptyAttestation(lp, lpKey);
+
+        (usdcIdx, daiIdx) = getSortedIndexes(address(usdc), address(dai));
     }
 
     function createHook() internal override returns (address) {
@@ -54,7 +59,7 @@ contract BaseAngstromTest is BaseVaultTest {
 
     function registerAngstromNode(address account) internal {
         vm.expectEmit();
-        emit AngstromBalancer.NodeRegistered(account);
+        emit IAngstromBalancer.NodeRegistered(account);
 
         vm.prank(admin);
         angstromBalancer.registerNode(account);
@@ -63,7 +68,7 @@ contract BaseAngstromTest is BaseVaultTest {
 
     function deregisterAngstromNode(address account) internal {
         vm.expectEmit();
-        emit AngstromBalancer.NodeDeregistered(account);
+        emit IAngstromBalancer.NodeDeregistered(account);
 
         vm.prank(admin);
         angstromBalancer.deregisterNode(account);
@@ -74,7 +79,7 @@ contract BaseAngstromTest is BaseVaultTest {
         address signer,
         uint256 privateKey
     ) internal view returns (bytes memory signature, bytes memory userData) {
-        bytes32 hash = angstromBalancer.getDigest();
+        bytes32 hash = angstromBalancer.computeDigestEmptyAttestation();
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
         signature = abi.encodePacked(r, s, v);
         userData = abi.encodePacked(signer, signature);
@@ -100,6 +105,15 @@ contract BaseAngstromTest is BaseVaultTest {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
         signature = abi.encodePacked(r, s, v);
         userData = abi.encodePacked(signer, signature);
+    }
+
+    function generateSignatureToBSwap(
+        uint256 privateKey,
+        IAngstromBalancer.ToBSwapData memory swap
+    ) internal view returns (bytes memory signature) {
+        bytes32 hash = angstromBalancer.computeDigestToB(swap);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, hash);
+        signature = abi.encodePacked(r, s, v);
     }
 
     function _computeAngstromBalancerTestPath(string memory name) private view returns (string memory) {

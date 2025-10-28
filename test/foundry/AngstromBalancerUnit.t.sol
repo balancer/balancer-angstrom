@@ -6,7 +6,7 @@ import "forge-std/Test.sol";
 
 import { IAuthentication } from "@balancer-labs/v3-interfaces/contracts/solidity-utils/helpers/IAuthentication.sol";
 
-import { AngstromBalancer } from "../../contracts/AngstromBalancer.sol";
+import { IAngstromBalancer } from "../../contracts/interfaces/IAngstromBalancer.sol";
 import { BaseAngstromTest } from "./utils/BaseAngstromTest.sol";
 
 contract AngstromBalancerUnitTest is BaseAngstromTest {
@@ -25,13 +25,13 @@ contract AngstromBalancerUnitTest is BaseAngstromTest {
     function testAddNodeAlreadyRegistered() public {
         registerAngstromNode(bob);
         vm.prank(admin);
-        vm.expectRevert(AngstromBalancer.NodeAlreadyRegistered.selector);
+        vm.expectRevert(IAngstromBalancer.NodeAlreadyRegistered.selector);
         angstromBalancer.registerNode(bob);
     }
 
     function testRemoveNodeNotRegistered() public {
         vm.prank(admin);
-        vm.expectRevert(AngstromBalancer.NodeNotRegistered.selector);
+        vm.expectRevert(IAngstromBalancer.NodeNotRegistered.selector);
         angstromBalancer.deregisterNode(bob);
     }
 

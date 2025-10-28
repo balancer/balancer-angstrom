@@ -32,7 +32,11 @@ contract AngstromBalancerMock is AngstromBalancer {
         return _computeDigestSwapExactOut(paths);
     }
 
-    function getDigest() external view returns (bytes32) {
-        return _getDigest();
+    function computeDigestToB(ToBSwapData memory swap) external view returns (bytes32) {
+        return _computeDigestToB(swap);
+    }
+
+    function computeDigestEmptyAttestation() external view returns (bytes32) {
+        return _computeDigestEmptyAttestation();
     }
 }
