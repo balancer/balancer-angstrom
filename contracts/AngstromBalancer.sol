@@ -521,17 +521,8 @@ contract AngstromBalancer is IBatchRouter, BatchRouterHooks, OwnableAuthenticati
 
     // Helper function to hash a single SwapPathExactAmountIn
     function _hashSwapExactInPath(SwapPathExactAmountIn memory path) internal pure returns (bytes32) {
-        // We need to define a type hash for SwapPathExactAmountIn.
-        // For now, using a simple encoding (adjust based on the EIP-712 schema).
-        bytes32[] memory stepHashes = new bytes32[](path.steps.length);
-
-        for (uint256 i = 0; i < path.steps.length; i++) {
-            stepHashes[i] = keccak256(abi.encode(path.steps[i].pool, path.steps[i].tokenOut, path.steps[i].isBuffer));
-        }
-
-        bytes32 stepsHash = keccak256(abi.encodePacked(stepHashes));
-
-        return keccak256(abi.encode(path.tokenIn, stepsHash, path.exactAmountIn, path.minAmountOut));
+        bytes memory stepsBytes = abi.encode(path.steps);
+        return keccak256(abi.encode(path.tokenIn, stepsBytes, path.exactAmountIn, path.minAmountOut));
     }
 
     function _computeDigestSwapExactOut(SwapPathExactAmountOut[] memory paths) internal view returns (bytes32) {
